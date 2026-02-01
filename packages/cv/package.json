@@ -1,0 +1,34 @@
+{
+  "name": "@a/cv",
+  "exports": {
+    ".": "./convex/_generated/api.js",
+    "./ai": "./ai.ts",
+    "./chat": "./convex/chat.ts",
+    "./model": "./convex/_generated/dataModel.d.ts",
+    "./server": "./convex/_generated/server.js",
+    "./t": "./t.ts",
+    "./zod": "./zod.ts"
+  },
+  "scripts": {
+    "build": "tsc",
+    "check:schema": "bun ./check-schema.ts",
+    "clean": "git clean -xdf .cache .turbo dist node_modules",
+    "dev": "bun with-env convex dev",
+    "lint": "eslint",
+    "prod": "bun with-env convex deploy",
+    "typecheck": "bun check:schema && tsc --noEmit",
+    "with-env": "dotenv -e ../../.env --"
+  },
+  "dependencies": {
+    "@auth/core": "^0.41",
+    "@convex-dev/agent": "latest",
+    "@convex-dev/auth": "latest",
+    "@convex-dev/persistent-text-streaming": "latest",
+    "@convex-dev/rate-limiter": "latest",
+    "@convex-dev/workpool": "latest",
+    "@t3-oss/env-nextjs": "latest",
+    "convex": "latest",
+    "convex-durable-agents": "latest",
+    "convex-helpers": "latest"
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "name": "@a/2",
+  "type": "module",
+  "scripts": {
+    "build": "bun with-env next build --turbo",
+    "clean": "git clean -xdf .cache .next .turbo node_modules",
+    "dev": "bun with-env next dev --turbo",
+    "lint": "eslint",
+    "start": "bun with-env next start",
+    "test:e2e": "CONVEX_TEST_MODE=true bun --cwd ../../packages/cv with-env convex dev --once && bun with-env playwright test",
+    "test:e2e:ci": "bun with-env playwright test",
+    "typecheck": "tsc --noEmit",
+    "with-env": "dotenv -e ../../.env --"
+  },
+  "dependencies": {
+    "@ai-sdk/google": "latest",
+    "@ai-sdk/google-vertex": "latest",
+    "@ai-sdk/openai": "latest",
+    "@ai-sdk/openai-compatible": "latest",
+    "@sindresorhus/slugify": "latest",
+    "@svgr-iconkit/flat-color-icons": "latest",
+    "@tanstack/react-form": "latest",
+    "browser-image-compression": "latest",
+    "ky": "latest",
+    "next": "latest",
+    "next-navigation-guard": "latest",
+    "react-dropzone": "latest",
+    "react-intersection-observer": "latest"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "latest",
+    "@playwright/test": "latest"
+  }
+}
