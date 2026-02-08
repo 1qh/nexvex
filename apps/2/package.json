@@ -1,0 +1,29 @@
+{
+  "name": "@a/2",
+  "type": "module",
+  "scripts": {
+    "build": "bun with-env next build --turbo",
+    "clean": "git clean -xdf .cache .next .turbo node_modules",
+    "dev": "bun with-env next dev --turbo",
+    "lint": "eslint",
+    "start": "bun with-env next start",
+    "test:e2e": "CONVEX_TEST_MODE=true bun --cwd ../../packages/cv with-env convex dev --once && bun with-env bun e2e/run-all.ts",
+    "typecheck": "tsc --noEmit",
+    "with-env": "dotenv -e ../../.env --"
+  },
+  "dependencies": {
+    "@sindresorhus/slugify": "latest",
+    "@svgr-iconkit/flat-color-icons": "latest",
+    "@tanstack/react-form": "latest",
+    "browser-image-compression": "latest",
+    "next": "latest",
+    "next-navigation-guard": "latest",
+    "posthog-js": "latest",
+    "react-dropzone": "latest",
+    "react-intersection-observer": "latest"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "latest",
+    "@playwright/test": "latest"
+  }
+}

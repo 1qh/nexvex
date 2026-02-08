@@ -1,0 +1,1785 @@
+/* eslint-disable max-statements, no-await-in-loop */
+// oxlint-disable promise/prefer-await-to-then
+// biome-ignore-all lint/performance/noAwaitInLoops: test fixtures
+import { describe, expect, test } from 'bun:test'
+import { convexTest } from 'convex-test'
+
+import { api } from './_generated/api'
+import schema from './schema'
+
+type TestCtx = ReturnType<typeof t>
+const modules = {
+    '../models.mock.ts': async () => import('../models.mock'),
+    '../retry.ts': async () => import('../retry'),
+    './_generated/api.js': async () => import('./_generated/api'),
+    './_generated/server.js': async () => import('./_generated/server'),
+    './auth.config.ts': async () => import('./auth.config'),
+    './auth.ts': async () => import('./auth'),
+    './blog.ts': async () => import('./blog'),
+    './chat.ts': async () => import('./chat'),
+    './file.ts': async () => import('./file'),
+    './http.ts': async () => import('./http'),
+    './message.ts': async () => import('./message'),
+    './movie.ts': async () => import('./movie'),
+    './org.ts': async () => import('./org'),
+    './project.ts': async () => import('./project'),
+    './schema.ts': async () => import('./schema'),
+    './task.ts': async () => import('./task'),
+    './testauth.ts': async () => import('./testauth'),
+    './tools/weather.ts': async () => import('./tools/weather'),
+    './user.ts': async () => import('./user'),
+    './wiki.ts': async () => import('./wiki')
+  },
+  t = () => convexTest(schema, modules),
+  mockUser = { email: 'test@example.com', name: 'Test User' },
+  mockUser2 = { email: 'other@example.com', name: 'Other User' },
+  mockUser3 = { email: 'editor@example.com', name: 'Editor User' },
+  createUserAndGetId = async (ctx: TestCtx) =>
+    ctx.run(async c => {
+      const existing = await c.db
+        .query('users')
+        .filter(q => q.eq(q.field('email'), mockUser.email))
+        .first()
+      if (existing) return existing._id
+      return c.db.insert('users', { ...mockUser, emailVerificationTime: Date.now() })
+    }),
+  createSecondUserAndGetId = async (ctx: TestCtx) =>
+    ctx.run(async c => {
+      const existing = await c.db
+        .query('users')
+        .filter(q => q.eq(q.field('email'), mockUser2.email))
+        .first()
+      if (existing) return existing._id
+      return c.db.insert('users', { ...mockUser2, emailVerificationTime: Date.now() })
+    }),
+  createThirdUserAndGetId = async (ctx: TestCtx) =>
+    ctx.run(async c => {
+      const existing = await c.db
+        .query('users')
+        .filter(q => q.eq(q.field('email'), mockUser3.email))
+        .first()
+      if (existing) return existing._id
+      return c.db.insert('users', { ...mockUser3, emailVerificationTime: Date.now() })
+    })
+
+describe('crud factory', () => {
+  describe('basic CRUD operations', () => {
+    test('create and read a blog post', async () => {
+      const ctx = t(),
+        userId = await createUserAndGetId(ctx),
+        asUser = ctx.withIdentity({ subject: userId, tokenIdentifier: `test|${userId}` })
+
+      await ctx.run(async c => {
+        await c.db.insert('blog', {
+          category: 'tech',
+          content: 'Test content',
+          published: false,
+          title: 'Test Post',
+          updatedAt: Date.now(),
+          userId
+        })
+      })
+
+      const posts = await asUser.query(api.blog.all, { where: { own: true } })
+      expect(posts.length).toBe(1)
+      expect(posts[0]?.title).toBe('Test Post')
+      expect(posts[0]?.own).toBe(true)
+    })
+
+    test('update a blog post', async () => {
+      const ctx = t(),
+        userId = await createUserAndGetId(ctx),
+        postId = await ctx.run(async c =>
+          c.db.insert('blog', {
+            category: 'tech',
+            content: 'Original content',
+            published: false,
+            title: 'Original Title',
+            updatedAt: Date.now(),
+            userId
+          })
+        ),
+        asUser = ctx.withIdentity({ subject: userId, tokenIdentifier: `test|${userId}` }),
+        updated = await asUser.mutation(api.blog.update, {
+          id: postId,
+          title: 'Updated Title'
+        })
+
+      expect(updated.title).toBe('Updated Title')
+      expect(updated.content).toBe('Original content')
+    })
+
+    test('delete a blog post', async () => {
+      const ctx = t(),
+        userId = await createUserAndGetId(ctx),
+        postId = await ctx.run(async c =>
+          c.db.insert('blog', {
+            category: 'tech',
+            content: 'To be deleted',
+            published: false,
+            title: 'Delete Me',
+            updatedAt: Date.now(),
+            userId
+          })
+        ),
+        asUser = ctx.withIdentity({ subject: userId, tokenIdentifier: `test|${userId}` })
+      await asUser.mutation(api.blog.rm, { id: postId })
+
+      const posts = await asUser.query(api.blog.all, { where: { own: true } })
+      expect(posts.length).toBe(0)
+    })
+  })
+
+  describe('file cleanup', () => {
+    test('cleans up old file when replaced', async () => {
+      const ctx = t(),
+        userId = await createUserAndGetId(ctx),
+        oldFileId = await ctx.run(async c => c.storage.store(new Blob(['old']))),
+        newFileId = await ctx.run(async c => c.storage.store(new Blob(['new']))),
+        postId = await ctx.run(async c =>
+          c.db.insert('blog', {
+            category: 'tech',
+            content: 'File test',
+            coverImage: oldFileId,
+            published: false,
+            title: 'File Test',
+            updatedAt: Date.now(),
+            userId
+          })
+        ),
+        asUser = ctx.withIdentity({ subject: userId, tokenIdentifier: `test|${userId}` })
+      await asUser.mutation(api.blog.update, { coverImage: newFileId, id: postId })
+
+      const oldFile = await ctx.run(async c => c.storage.getUrl(oldFileId))
+      expect(oldFile).toBeNull()
+    })
+
+    test('cleans up file when set to null', async () => {
+      const ctx = t(),
+        userId = await createUserAndGetId(ctx),
+        fileId = await ctx.run(async c => c.storage.store(new Blob(['data']))),
+        postId = await ctx.run(async c =>
+          c.db.insert('blog', {
+            category: 'tech',
+            content: 'File null test',
+            coverImage: fileId,
+            published: false,
+            title: 'File Null Test',
+            updatedAt: Date.now(),
+            userId
+          })
+        ),
+        asUser = ctx.withIdentity({ subject: userId, tokenIdentifier: `test|${userId}` })
+      await asUser.mutation(api.blog.update, { coverImage: null, id: postId })
+
+      const file = await ctx.run(async c => c.storage.getUrl(fileId))
+      expect(file).toBeNull()
+    })
+    test('cleans up files on delete', async () => {
+      const ctx = t(),
+        userId = await createUserAndGetId(ctx),
+        fileId = await ctx.run(async c => c.storage.store(new Blob(['delete-me']))),
+        postId = await ctx.run(async c =>
+          c.db.insert('blog', {
+            category: 'tech',
+            content: 'Delete file test',
+            coverImage: fileId,
+            published: false,
+            title: 'Delete File Test',
+            updatedAt: Date.now(),
+            userId
+          })
+        ),
+        asUser = ctx.withIdentity({ subject: userId, tokenIdentifier: `test|${userId}` })
+      await asUser.mutation(api.blog.rm, { id: postId })
+
+      const file = await ctx.run(async c => c.storage.getUrl(fileId))
+      expect(file).toBeNull()
+    })
+
+    test('preserves files not included in partial update', async () => {
+      const ctx = t(),
+        userId = await createUserAndGetId(ctx),
+        fileId = await ctx.run(async c => c.storage.store(new Blob(['keep-me']))),
+        postId = await ctx.run(async c =>
+          c.db.insert('blog', {
+            category: 'tech',
+            content: 'Preserve file test',
+            coverImage: fileId,
+            published: false,
+            title: 'Preserve File Test',
+            updatedAt: Date.now(),
+            userId
+          })
+        ),
+        asUser = ctx.withIdentity({ subject: userId, tokenIdentifier: `test|${userId}` })
+      await asUser.mutation(api.blog.update, { id: postId, title: 'New Title' })
+
+      const file = await ctx.run(async c => c.storage.getUrl(fileId))
+      expect(file).not.toBeNull()
+    })
+  })
+
+  describe('cascade delete', () => {
+    test('removes child messages when chat is deleted', async () => {
+      const ctx = t(),
+        userId = await createUserAndGetId(ctx),
+        chatId = await ctx.run(async c =>
+          c.db.insert('chat', {
+            title: 'Test Chat',
+            updatedAt: Date.now(),
+            userId
+          })
+        )
+
+      await ctx.run(async c => {
+        await c.db.insert('message', {
+          chatId,
+          parts: [{ text: 'Hello', type: 'text' }],
+          role: 'user',
+          updatedAt: Date.now()
+        })
+        await c.db.insert('message', {
+          chatId,
+          parts: [{ text: 'Hi there', type: 'text' }],
+          role: 'assistant',
+          updatedAt: Date.now()
+        })
+      })
+
+      const messagesBefore = await ctx.run(async c =>
+        c.db
+          .query('message')
+          .filter(q => q.eq(q.field('chatId'), chatId))
+          .collect()
+      )
+      expect(messagesBefore.length).toBe(2)
+
+      const asUser = ctx.withIdentity({ subject: userId, tokenIdentifier: `test|${userId}` })
+      await asUser.mutation(api.chat.rm, { id: chatId })
+
+      const messagesAfter = await ctx.run(async c =>
+        c.db
+          .query('message')
+          .filter(q => q.eq(q.field('chatId'), chatId))
+          .collect()
+      )
+      expect(messagesAfter.length).toBe(0)
+    })
+  })
+
+  describe('where clause parsing', () => {
+    test('filters by single field', async () => {
+      const ctx = t(),
+        userId = await createUserAndGetId(ctx)
+
+      await ctx.run(async c => {
+        await c.db.insert('blog', {
+          category: 'tech',
+          content: 'Tech post',
+          published: true,
+          title: 'Tech Post',
+          updatedAt: Date.now(),
+          userId
+        })
+        await c.db.insert('blog', {
+          category: 'life',
+          content: 'Life post',
+          published: true,
+          title: 'Life Post',
+          updatedAt: Date.now(),
+          userId
+        })
+      })
+
+      const techPosts = await ctx.query(api.blog.all, { where: { category: 'tech' } })
+      expect(techPosts.length).toBe(1)
+      expect(techPosts[0]?.category).toBe('tech')
+
+      const allPosts = await ctx.query(api.blog.all, {})
+      expect(allPosts.length).toBe(2)
+    })
+
+    test('filters with AND (multiple fields)', async () => {
+      const ctx = t(),
+        userId = await createUserAndGetId(ctx)
+
+      await ctx.run(async c => {
+        await c.db.insert('blog', {
+          category: 'tech',
+          content: 'Published tech',
+          published: true,
+          title: 'Published Tech',
+          updatedAt: Date.now(),
+          userId
+        })
+        await c.db.insert('blog', {
+          category: 'tech',
+          content: 'Draft tech',
+          published: false,
+          title: 'Draft Tech',
+          updatedAt: Date.now(),
+          userId
+        })
+      })
+
+      const publishedTech = await ctx.query(api.blog.all, { where: { category: 'tech', published: true } })
+      expect(publishedTech.length).toBe(1)
+      expect(publishedTech[0]?.title).toBe('Published Tech')
+
+      const allTech = await ctx.query(api.blog.all, { where: { category: 'tech' } })
+      expect(allTech.length).toBe(2)
+    })
+
+    test('filters with OR clause', async () => {
+      const ctx = t(),
+        userId = await createUserAndGetId(ctx)
+
+      await ctx.run(async c => {
+        await c.db.insert('blog', {
+          category: 'tech',
+          content: 'Tech',
+          published: true,
+          title: 'Tech',
+          updatedAt: Date.now(),
+          userId
+        })
+        await c.db.insert('blog', {
+          category: 'life',
+          content: 'Life',
+          published: true,
+          title: 'Life',
+          updatedAt: Date.now(),
+          userId
+        })
+        await c.db.insert('blog', {
+          category: 'tutorial',
+          content: 'Tutorial',
+          published: true,
+          title: 'Tutorial',
+          updatedAt: Date.now(),
+          userId
+        })
+      })
+
+      const techOrLife = await ctx.query(api.blog.all, {
+        where: { or: [{ category: 'tech' }, { category: 'life' }] }
+      })
+      expect(techOrLife.length).toBe(2)
+
+      const allPosts = await ctx.query(api.blog.all, {})
+      expect(allPosts.length).toBe(3)
+    })
+  })
+
+  describe('withAuthor batch deduplication', () => {
+    test('deduplicates author lookups for same user', async () => {
+      const ctx = t(),
+        userId = await createUserAndGetId(ctx)
+
+      await ctx.run(async c => {
+        for (let i = 0; i < 5; i += 1)
+          await c.db.insert('blog', {
+            category: 'tech',
+            content: `Post ${i}`,
+            published: true,
+            title: `Post ${i}`,
+            updatedAt: Date.now(),
+            userId
+          })
+      })
+
+      const posts = await ctx.query(api.blog.all, {})
+      expect(posts.length).toBe(5)
+
+      for (const post of posts) expect(post.author?.name).toBe(mockUser.name)
+    })
+  })
+
+  describe('auth enforcement', () => {
+    test('throws error for unauthenticated user on auth endpoint', async () => {
+      const ctx = t()
+      let threw = false
+
+      try {
+        await ctx.query(api.chat.all, { where: { own: true } })
+      } catch (error) {
+        threw = true
+        expect(String(error)).toContain('NOT_AUTHENTICATED')
+      }
+
+      expect(threw).toBe(true)
+    })
+
+    test('throws NOT_FOUND when accessing other user data', async () => {
+      const ctx = t(),
+        userId1 = await createUserAndGetId(ctx),
+        userId2 = await createSecondUserAndGetId(ctx),
+        postId = await ctx.run(async c =>
+          c.db.insert('blog', {
+            category: 'tech',
+            content: 'User 1 post',
+            published: false,
+            title: 'User 1 Post',
+            updatedAt: Date.now(),
+            userId: userId1
+          })
+        ),
+        asUser2 = ctx.withIdentity({ subject: userId2, tokenIdentifier: `test|${userId2}` })
+      let threw = false
+
+      try {
+        await asUser2.mutation(api.blog.update, { id: postId, title: 'Hacked' })
+      } catch (error) {
+        threw = true
+        expect(String(error)).toContain('NOT_FOUND')
+      }
+
+      expect(threw).toBe(true)
+    })
+  })
+
+  describe('ownership verification', () => {
+    test('read with own: true verifies ownership', async () => {
+      const ctx = t(),
+        userId1 = await createUserAndGetId(ctx),
+        userId2 = await createSecondUserAndGetId(ctx),
+        postId = await ctx.run(async c =>
+          c.db.insert('blog', {
+            category: 'tech',
+            content: 'Owner check',
+            published: true,
+            title: 'Read Own Check',
+            updatedAt: Date.now(),
+            userId: userId1
+          })
+        ),
+        asUser1 = ctx.withIdentity({ subject: userId1, tokenIdentifier: `test|${userId1}` }),
+        asUser2 = ctx.withIdentity({ subject: userId2, tokenIdentifier: `test|${userId2}` }),
+        readByOwner = await asUser1.query(api.blog.read, { id: postId, own: true })
+      expect(readByOwner).not.toBeNull()
+      expect(readByOwner?.title).toBe('Read Own Check')
+
+      const readByNonOwner = await asUser2.query(api.blog.read, { id: postId, own: true })
+      expect(readByNonOwner).toBeNull()
+
+      const readWithoutOwn = await asUser2.query(api.blog.read, { id: postId })
+      expect(readWithoutOwn).not.toBeNull()
+    })
+
+    test('read with own: true returns null for unauthenticated', async () => {
+      const ctx = t(),
+        userId = await createUserAndGetId(ctx),
+        postId = await ctx.run(async c =>
+          c.db.insert('blog', {
+            category: 'tech',
+            content: 'Public post',
+            published: true,
+            title: 'Read Own Unauth',
+            updatedAt: Date.now(),
+            userId
+          })
+        ),
+        readWithOwn = await ctx.query(api.blog.read, { id: postId, own: true })
+      expect(readWithOwn).toBeNull()
+
+      const readWithoutOwn = await ctx.query(api.blog.read, { id: postId })
+      expect(readWithoutOwn).not.toBeNull()
+    })
+
+    test('own filter in where clause works', async () => {
+      const ctx = t(),
+        userId1 = await createUserAndGetId(ctx),
+        userId2 = await createSecondUserAndGetId(ctx)
+
+      await ctx.run(async c => {
+        await c.db.insert('blog', {
+          category: 'tech',
+          content: 'User 1',
+          published: true,
+          title: 'User 1 Post',
+          updatedAt: Date.now(),
+          userId: userId1
+        })
+        await c.db.insert('blog', {
+          category: 'tech',
+          content: 'User 2',
+          published: true,
+          title: 'User 2 Post',
+          updatedAt: Date.now(),
+          userId: userId2
+        })
+      })
+
+      const asUser1 = ctx.withIdentity({ subject: userId1, tokenIdentifier: `test|${userId1}` }),
+        ownPosts = await asUser1.query(api.blog.all, { where: { own: true } })
+
+      expect(ownPosts.length).toBe(1)
+      expect(ownPosts[0]?.title).toBe('User 1 Post')
+    })
+  })
+
+  describe('bulk operations', () => {
+    test('bulkRm deletes multiple posts', async () => {
+      const ctx = t(),
+        userId = await createUserAndGetId(ctx),
+        ids = await ctx.run(async c => {
+          const results: string[] = []
+          for (let i = 0; i < 3; i += 1) {
+            const id = await c.db.insert('blog', {
+              category: 'tech',
+              content: `Bulk ${i}`,
+              published: false,
+              title: `Bulk ${i}`,
+              updatedAt: Date.now(),
+              userId
+            })
+            results.push(id)
+          }
+          return results
+        }),
+        asUser = ctx.withIdentity({ subject: userId, tokenIdentifier: `test|${userId}` }),
+        deleted = await asUser.mutation(api.blog.bulkRm, { ids })
+
+      expect(deleted).toBe(3)
+
+      const remaining = await asUser.query(api.blog.all, { where: { own: true } })
+      expect(remaining.length).toBe(0)
+    })
+
+    test('bulkUpdate updates multiple posts', async () => {
+      const ctx = t(),
+        userId = await createUserAndGetId(ctx),
+        ids = await ctx.run(async c => {
+          const results: string[] = []
+          for (let i = 0; i < 3; i += 1) {
+            const id = await c.db.insert('blog', {
+              category: 'tech',
+              content: `Bulk update ${i}`,
+              published: false,
+              title: `Original ${i}`,
+              updatedAt: Date.now(),
+              userId
+            })
+            results.push(id)
+          }
+          return results
+        }),
+        asUser = ctx.withIdentity({ subject: userId, tokenIdentifier: `test|${userId}` }),
+        updated = await asUser.mutation(api.blog.bulkUpdate, {
+          data: { title: 'Updated' },
+          ids
+        })
+
+      expect(updated.length).toBe(3)
+      for (const post of updated) expect(post.title).toBe('Updated')
+    })
+  })
+
+  describe('count operations', () => {
+    test('count returns total count', async () => {
+      const ctx = t(),
+        userId = await createUserAndGetId(ctx)
+
+      await ctx.run(async c => {
+        for (let i = 0; i < 5; i += 1)
+          await c.db.insert('blog', {
+            category: 'tech',
+            content: `Count ${i}`,
+            published: true,
+            title: `Count ${i}`,
+            updatedAt: Date.now(),
+            userId
+          })
+      })
+
+      const result = await ctx.query(api.blog.count, {})
+      expect(result).toBe(5)
+    })
+
+    test('count with where filter', async () => {
+      const ctx = t(),
+        userId = await createUserAndGetId(ctx)
+
+      await ctx.run(async c => {
+        for (let i = 0; i < 5; i += 1)
+          await c.db.insert('blog', {
+            category: 'tech',
+            content: `Count filter tech ${i}`,
+            published: true,
+            title: `Count Filter Tech ${i}`,
+            updatedAt: Date.now(),
+            userId
+          })
+        for (let i = 0; i < 5; i += 1)
+          await c.db.insert('blog', {
+            category: 'life',
+            content: `Count filter life ${i}`,
+            published: true,
+            title: `Count Filter Life ${i}`,
+            updatedAt: Date.now(),
+            userId
+          })
+      })
+
+      const techCount = await ctx.query(api.blog.count, { where: { category: 'tech' } })
+      expect(techCount).toBe(5)
+
+      const totalCount = await ctx.query(api.blog.count, {})
+      expect(totalCount).toBe(10)
+    })
+  })
+
+  describe('search operations', () => {
+    test('search finds matching posts', async () => {
+      const ctx = t(),
+        userId = await createUserAndGetId(ctx)
+
+      await ctx.run(async c => {
+        await c.db.insert('blog', {
+          category: 'tech',
+          content: 'TypeScript is great',
+          published: true,
+          title: 'TypeScript Guide',
+          updatedAt: Date.now(),
+          userId
+        })
+        await c.db.insert('blog', {
+          category: 'tech',
+          content: 'JavaScript basics',
+          published: true,
+          title: 'JavaScript Guide',
+          updatedAt: Date.now(),
+          userId
+        })
+      })
+
+      const results = await ctx.query(api.blog.search, {
+        fields: ['title', 'content'],
+        query: 'TypeScript'
+      })
+
+      expect(results.length).toBe(1)
+      expect(results[0]?.title).toBe('TypeScript Guide')
+    })
+
+    test('search is case insensitive', async () => {
+      const ctx = t(),
+        userId = await createUserAndGetId(ctx)
+
+      await ctx.run(async c => {
+        await c.db.insert('blog', {
+          category: 'tech',
+          content: 'UPPERCASE content',
+          published: true,
+          title: 'Case Test',
+          updatedAt: Date.now(),
+          userId
+        })
+      })
+
+      const results = await ctx.query(api.blog.search, {
+        fields: ['content'],
+        query: 'uppercase'
+      })
+
+      expect(results.length).toBe(1)
+    })
+  })
+})
+
+describe('childCrud factory', () => {
+  describe('parent ownership verification', () => {
+    test('can create message in own chat', async () => {
+      const ctx = t(),
+        userId = await createUserAndGetId(ctx),
+        chatId = await ctx.run(async c =>
+          c.db.insert('chat', {
+            title: 'My Chat',
+            updatedAt: Date.now(),
+            userId
+          })
+        ),
+        asUser = ctx.withIdentity({ subject: userId, tokenIdentifier: `test|${userId}` }),
+        messageId = await asUser.mutation(api.message.create, {
+          chatId,
+          parts: [{ text: 'Hello', type: 'text' }],
+          role: 'user'
+        })
+
+      expect(messageId).toBeDefined()
+    })
+
+    test('cannot create message in other user chat', async () => {
+      const ctx = t(),
+        userId1 = await createUserAndGetId(ctx),
+        userId2 = await createSecondUserAndGetId(ctx),
+        chatId = await ctx.run(async c =>
+          c.db.insert('chat', {
+            title: 'User 1 Chat',
+            updatedAt: Date.now(),
+            userId: userId1
+          })
+        ),
+        asUser2 = ctx.withIdentity({ subject: userId2, tokenIdentifier: `test|${userId2}` })
+      let threw = false
+
+      try {
+        await asUser2.mutation(api.message.create, {
+          chatId,
+          parts: [{ text: 'Intruder', type: 'text' }],
+          role: 'user'
+        })
+      } catch (error) {
+        threw = true
+        expect(String(error)).toContain('NOT_FOUND')
+      }
+
+      expect(threw).toBe(true)
+    })
+
+    test('cannot list messages from other user chat', async () => {
+      const ctx = t(),
+        userId1 = await createUserAndGetId(ctx),
+        userId2 = await createSecondUserAndGetId(ctx),
+        chatId = await ctx.run(async c =>
+          c.db.insert('chat', {
+            title: 'Private Chat',
+            updatedAt: Date.now(),
+            userId: userId1
+          })
+        )
+
+      await ctx.run(async c => {
+        await c.db.insert('message', {
+          chatId,
+          parts: [{ text: 'Secret', type: 'text' }],
+          role: 'user',
+          updatedAt: Date.now()
+        })
+      })
+
+      const asUser2 = ctx.withIdentity({ subject: userId2, tokenIdentifier: `test|${userId2}` })
+      let threw = false
+
+      try {
+        await asUser2.query(api.message.list, { chatId })
+      } catch (error) {
+        threw = true
+        expect(String(error)).toContain('NOT_AUTHORIZED')
+      }
+
+      expect(threw).toBe(true)
+    })
+  })
+})
+
+describe('cacheCrud factory', () => {
+  describe('TTL boundary conditions', () => {
+    test('cache entries have updatedAt timestamp', async () => {
+      const ctx = t(),
+        now = Date.now(),
+        id = await ctx.run(async c =>
+          c.db.insert('movie', {
+            backdrop_path: '/path.jpg',
+            budget: 1_000_000,
+            genres: [{ id: 1, name: 'Action' }],
+            original_title: 'Test Movie',
+            overview: 'A test movie',
+            poster_path: '/poster.jpg',
+            release_date: '2024-01-01',
+            revenue: 5_000_000,
+            runtime: 120,
+            tagline: 'Test tagline',
+            title: 'Test Movie',
+            tmdb_id: 12_345,
+            updatedAt: now,
+            vote_average: 7.5,
+            vote_count: 1000
+          })
+        ),
+        movie = await ctx.run(async c => c.db.get(id))
+      expect(movie).not.toBeNull()
+      expect(movie?.updatedAt).toBe(now)
+      expect(movie?.title).toBe('Test Movie')
+    })
+
+    test('expired entries have old updatedAt timestamp', async () => {
+      const ctx = t(),
+        expiredTime = Date.now() - 8 * 24 * 60 * 60 * 1000,
+        id = await ctx.run(async c =>
+          c.db.insert('movie', {
+            backdrop_path: '/path.jpg',
+            budget: 1_000_000,
+            genres: [{ id: 1, name: 'Action' }],
+            original_title: 'Expired Movie',
+            overview: 'An expired movie',
+            poster_path: '/poster.jpg',
+            release_date: '2024-01-01',
+            revenue: 5_000_000,
+            runtime: 120,
+            tagline: 'Expired tagline',
+            title: 'Expired Movie',
+            tmdb_id: 99_999,
+            updatedAt: expiredTime,
+            vote_average: 7.5,
+            vote_count: 1000
+          })
+        ),
+        movie = await ctx.run(async c => c.db.get(id))
+      expect(movie).not.toBeNull()
+      expect(movie?.updatedAt).toBe(expiredTime)
+
+      const ttl = 7 * 24 * 60 * 60 * 1000,
+        updatedAt = movie?.updatedAt
+      expect(updatedAt).toBeDefined()
+      // oxlint-disable-next-line eslint-plugin-jest/no-conditional-in-test
+      const isExpired = (updatedAt ?? 0) + ttl < Date.now()
+      expect(isExpired).toBe(true)
+    })
+  })
+})
+
+describe('Zod integration', () => {
+  test('unwrapZod handles optional wrapper', async () => {
+    const { unwrapZod } = await import('../zod'),
+      { z } = await import('zod/v4'),
+      wrapped = z.string().optional(),
+      { type } = unwrapZod(wrapped)
+
+    expect(type).toBe('string')
+  })
+
+  test('unwrapZod handles nullable wrapper', async () => {
+    const { unwrapZod } = await import('../zod'),
+      { z } = await import('zod/v4'),
+      wrapped = z.number().nullable(),
+      { type } = unwrapZod(wrapped)
+
+    expect(type).toBe('number')
+  })
+
+  test('unwrapZod handles default wrapper', async () => {
+    const { unwrapZod } = await import('../zod'),
+      { z } = await import('zod/v4'),
+      wrapped = z.boolean().default(false),
+      { type } = unwrapZod(wrapped)
+
+    expect(type).toBe('boolean')
+  })
+
+  test('unwrapZod handles multiple wrappers', async () => {
+    const { unwrapZod } = await import('../zod'),
+      { z } = await import('zod/v4'),
+      wrapped = z.string().optional().nullable(),
+      { type } = unwrapZod(wrapped)
+
+    expect(type).toBe('string')
+  })
+
+  test('unwrapZod handles array types', async () => {
+    const { unwrapZod } = await import('../zod'),
+      { z } = await import('zod/v4'),
+      arr = z.array(z.string()),
+      { type } = unwrapZod(arr)
+
+    expect(type).toBe('array')
+  })
+
+  test('cvFileKindOf detects file meta', async () => {
+    const { cvFileKindOf } = await import('../zod'),
+      { z } = await import('zod/v4'),
+      fileSchema = z.string().meta({ cv: 'file' }),
+      kind = cvFileKindOf(fileSchema)
+
+    expect(kind).toBe('file')
+  })
+
+  test('cvFileKindOf detects array of files as files', async () => {
+    const { cvFileKindOf } = await import('../zod'),
+      { z } = await import('zod/v4'),
+      filesSchema = z.array(z.string().meta({ cv: 'file' })),
+      kind = cvFileKindOf(filesSchema)
+
+    expect(kind).toBe('files')
+  })
+
+  test('cvFileKindOf returns undefined for non-file schemas', async () => {
+    const { cvFileKindOf } = await import('../zod'),
+      { z } = await import('zod/v4'),
+      stringSchema = z.string(),
+      kind = cvFileKindOf(stringSchema)
+
+    expect(kind).toBeUndefined()
+  })
+
+  test('type detection for all primitive types', async () => {
+    const { isArrayType, isBooleanType, isDateType, isNumberType, isStringType } = await import('../zod')
+
+    expect(isStringType('string')).toBe(true)
+    expect(isStringType('ZodString')).toBe(true)
+    expect(isStringType('number')).toBe(false)
+
+    expect(isNumberType('number')).toBe(true)
+    expect(isNumberType('ZodNumber')).toBe(true)
+    expect(isNumberType('string')).toBe(false)
+
+    expect(isBooleanType('boolean')).toBe(true)
+    expect(isBooleanType('ZodBoolean')).toBe(true)
+    expect(isBooleanType('string')).toBe(false)
+
+    expect(isDateType('date')).toBe(true)
+    expect(isDateType('ZodDate')).toBe(true)
+    expect(isDateType('string')).toBe(false)
+
+    expect(isArrayType('array')).toBe(true)
+    expect(isArrayType('ZodArray')).toBe(true)
+    expect(isArrayType('string')).toBe(false)
+  })
+
+  test('enumToOptions transforms enum schema', async () => {
+    const { enumToOptions } = await import('../zod'),
+      { z } = await import('zod/v4'),
+      enumSchema = z.enum(['pending', 'active', 'completed']),
+      options = enumToOptions(enumSchema)
+
+    expect(options).toEqual([
+      { label: 'Pending', value: 'pending' },
+      { label: 'Active', value: 'active' },
+      { label: 'Completed', value: 'completed' }
+    ])
+  })
+
+  test('enumToOptions with custom transform', async () => {
+    const { enumToOptions } = await import('../zod'),
+      { z } = await import('zod/v4'),
+      enumSchema = z.enum(['tech', 'life']),
+      options = enumToOptions(enumSchema, v => v.toUpperCase())
+
+    expect(options).toEqual([
+      { label: 'TECH', value: 'tech' },
+      { label: 'LIFE', value: 'life' }
+    ])
+  })
+
+  test('requiredPartial creates partial with required fields', async () => {
+    const { requiredPartial } = await import('../zod'),
+      { z } = await import('zod/v4'),
+      testSchema = z.object({
+        email: z.string(),
+        id: z.string(),
+        name: z.string()
+      }),
+      partialWithRequired = requiredPartial(testSchema, ['id']),
+      result = partialWithRequired.safeParse({ id: '123' })
+
+    expect(result.success).toBe(true)
+  })
+
+  test('requiredPartial fails without required field', async () => {
+    const { requiredPartial } = await import('../zod'),
+      { z } = await import('zod/v4'),
+      testSchema = z.object({
+        id: z.string(),
+        name: z.string()
+      }),
+      partialWithRequired = requiredPartial(testSchema, ['id']),
+      result = partialWithRequired.safeParse({ name: 'Test' })
+
+    expect(result.success).toBe(false)
+  })
+
+  test('unwrapZod handles catch wrapper', async () => {
+    const { unwrapZod } = await import('../zod'),
+      { z } = await import('zod/v4'),
+      wrapped = z.string().catch('default'),
+      { type } = unwrapZod(wrapped)
+
+    expect(type).toBe('string')
+  })
+
+  test('elementOf extracts array element schema', async () => {
+    const { elementOf, unwrapZod } = await import('../zod'),
+      { z } = await import('zod/v4'),
+      arraySchema = z.array(z.number()),
+      { def, schema: unwrapped } = unwrapZod(arraySchema),
+      element = elementOf(unwrapped, def)
+
+    expect(element).toBeDefined()
+  })
+})
+
+describe('conflict detection', () => {
+  test('update with matching expectedUpdatedAt succeeds', async () => {
+    const ctx = t(),
+      userId = await createUserAndGetId(ctx),
+      postId = await ctx.run(async c =>
+        c.db.insert('blog', {
+          category: 'tech',
+          content: 'Conflict test',
+          published: false,
+          title: 'Original',
+          updatedAt: 1000,
+          userId
+        })
+      ),
+      asUser = ctx.withIdentity({ subject: userId, tokenIdentifier: `test|${userId}` }),
+      updated = await asUser.mutation(api.blog.update, {
+        expectedUpdatedAt: 1000,
+        id: postId,
+        title: 'Updated'
+      })
+
+    expect(updated.title).toBe('Updated')
+  })
+
+  test('update with mismatched expectedUpdatedAt throws CONFLICT', async () => {
+    const ctx = t(),
+      userId = await createUserAndGetId(ctx),
+      postId = await ctx.run(async c =>
+        c.db.insert('blog', {
+          category: 'tech',
+          content: 'Conflict test',
+          published: false,
+          title: 'Original',
+          updatedAt: 2000,
+          userId
+        })
+      ),
+      asUser = ctx.withIdentity({ subject: userId, tokenIdentifier: `test|${userId}` })
+    let threw = false
+
+    try {
+      await asUser.mutation(api.blog.update, {
+        expectedUpdatedAt: 1000,
+        id: postId,
+        title: 'Should fail'
+      })
+    } catch (error) {
+      threw = true
+      expect(String(error)).toContain('CONFLICT')
+    }
+
+    expect(threw).toBe(true)
+  })
+})
+
+describe('file cleanup with array fields', () => {
+  test('cleans up removed files from attachments array', async () => {
+    const ctx = t(),
+      userId = await createUserAndGetId(ctx),
+      file1 = await ctx.run(async c => c.storage.store(new Blob(['file1']))),
+      file2 = await ctx.run(async c => c.storage.store(new Blob(['file2']))),
+      file3 = await ctx.run(async c => c.storage.store(new Blob(['file3']))),
+      postId = await ctx.run(async c =>
+        c.db.insert('blog', {
+          attachments: [file1, file2, file3],
+          category: 'tech',
+          content: 'Array files test',
+          published: false,
+          title: 'Array Files',
+          updatedAt: Date.now(),
+          userId
+        })
+      ),
+      asUser = ctx.withIdentity({ subject: userId, tokenIdentifier: `test|${userId}` })
+
+    await asUser.mutation(api.blog.update, { attachments: [file2], id: postId })
+
+    const file1Url = await ctx.run(async c => c.storage.getUrl(file1)),
+      file2Url = await ctx.run(async c => c.storage.getUrl(file2)),
+      file3Url = await ctx.run(async c => c.storage.getUrl(file3))
+
+    expect(file1Url).toBeNull()
+    expect(file2Url).not.toBeNull()
+    expect(file3Url).toBeNull()
+  })
+
+  test('cleans up all files on delete', async () => {
+    const ctx = t(),
+      userId = await createUserAndGetId(ctx),
+      file1 = await ctx.run(async c => c.storage.store(new Blob(['del1']))),
+      file2 = await ctx.run(async c => c.storage.store(new Blob(['del2']))),
+      postId = await ctx.run(async c =>
+        c.db.insert('blog', {
+          attachments: [file1, file2],
+          category: 'tech',
+          content: 'Delete array files',
+          published: false,
+          title: 'Delete Array',
+          updatedAt: Date.now(),
+          userId
+        })
+      ),
+      asUser = ctx.withIdentity({ subject: userId, tokenIdentifier: `test|${userId}` })
+
+    await asUser.mutation(api.blog.rm, { id: postId })
+
+    const file1Url = await ctx.run(async c => c.storage.getUrl(file1)),
+      file2Url = await ctx.run(async c => c.storage.getUrl(file2))
+
+    expect(file1Url).toBeNull()
+    expect(file2Url).toBeNull()
+  })
+})
+
+describe('orgCrud ACL', () => {
+  test('owner can always edit project', async () => {
+    const ctx = t(),
+      ownerId = await createUserAndGetId(ctx),
+      asOwner = ctx.withIdentity({ subject: ownerId, tokenIdentifier: `test|${ownerId}` }),
+      orgId = await ctx.run(async c =>
+        c.db.insert('org', { name: 'Test Org', slug: 'test-org-acl-1', updatedAt: Date.now(), userId: ownerId })
+      ),
+      projectId = await asOwner.mutation(api.project.create, {
+        name: 'Owner Project',
+        orgId
+      }),
+      updated = await asOwner.mutation(api.project.update, {
+        id: projectId,
+        name: 'Updated by Owner',
+        orgId
+      })
+
+    expect(updated.name).toBe('Updated by Owner')
+  })
+
+  test('admin can always edit project', async () => {
+    const ctx = t(),
+      ownerId = await createUserAndGetId(ctx),
+      adminId = await createSecondUserAndGetId(ctx),
+      asOwner = ctx.withIdentity({ subject: ownerId, tokenIdentifier: `test|${ownerId}` }),
+      asAdmin = ctx.withIdentity({ subject: adminId, tokenIdentifier: `test|${adminId}` }),
+      orgId = await ctx.run(async c =>
+        c.db.insert('org', { name: 'Test Org', slug: 'test-org-acl-2', updatedAt: Date.now(), userId: ownerId })
+      )
+
+    await ctx.run(async c => {
+      await c.db.insert('orgMember', { isAdmin: true, orgId, updatedAt: Date.now(), userId: adminId })
+    })
+
+    const projectId = await asOwner.mutation(api.project.create, {
+        name: 'Admin Edit Project',
+        orgId
+      }),
+      updated = await asAdmin.mutation(api.project.update, {
+        id: projectId,
+        name: 'Updated by Admin',
+        orgId
+      })
+
+    expect(updated.name).toBe('Updated by Admin')
+  })
+
+  test('creator can always edit own project', async () => {
+    const ctx = t(),
+      ownerId = await createUserAndGetId(ctx),
+      memberId = await createSecondUserAndGetId(ctx),
+      asMember = ctx.withIdentity({ subject: memberId, tokenIdentifier: `test|${memberId}` }),
+      orgId = await ctx.run(async c =>
+        c.db.insert('org', { name: 'Test Org', slug: 'test-org-acl-3', updatedAt: Date.now(), userId: ownerId })
+      )
+
+    await ctx.run(async c => {
+      await c.db.insert('orgMember', { isAdmin: false, orgId, updatedAt: Date.now(), userId: memberId })
+    })
+
+    const projectId = await asMember.mutation(api.project.create, {
+        name: 'Member Project',
+        orgId
+      }),
+      updated = await asMember.mutation(api.project.update, {
+        id: projectId,
+        name: 'Updated by Creator',
+        orgId
+      })
+
+    expect(updated.name).toBe('Updated by Creator')
+  })
+
+  test('editor in editors[] can update project', async () => {
+    const ctx = t(),
+      ownerId = await createUserAndGetId(ctx),
+      memberId = await createSecondUserAndGetId(ctx),
+      asOwner = ctx.withIdentity({ subject: ownerId, tokenIdentifier: `test|${ownerId}` }),
+      asMember = ctx.withIdentity({ subject: memberId, tokenIdentifier: `test|${memberId}` }),
+      orgId = await ctx.run(async c =>
+        c.db.insert('org', { name: 'Test Org', slug: 'test-org-acl-4', updatedAt: Date.now(), userId: ownerId })
+      )
+
+    await ctx.run(async c => {
+      await c.db.insert('orgMember', { isAdmin: false, orgId, updatedAt: Date.now(), userId: memberId })
+    })
+
+    const projectId = await asOwner.mutation(api.project.create, {
+      name: 'Editable Project',
+      orgId
+    })
+
+    await asOwner.mutation(api.project.addEditor, { editorId: memberId, orgId, projectId })
+
+    const updated = await asMember.mutation(api.project.update, {
+      id: projectId,
+      name: 'Updated by Editor',
+      orgId
+    })
+
+    expect(updated.name).toBe('Updated by Editor')
+  })
+
+  test('non-editor member CANNOT update project', async () => {
+    const ctx = t(),
+      ownerId = await createUserAndGetId(ctx),
+      memberId = await createSecondUserAndGetId(ctx),
+      asOwner = ctx.withIdentity({ subject: ownerId, tokenIdentifier: `test|${ownerId}` }),
+      asMember = ctx.withIdentity({ subject: memberId, tokenIdentifier: `test|${memberId}` }),
+      orgId = await ctx.run(async c =>
+        c.db.insert('org', { name: 'Test Org', slug: 'test-org-acl-5', updatedAt: Date.now(), userId: ownerId })
+      )
+
+    await ctx.run(async c => {
+      await c.db.insert('orgMember', { isAdmin: false, orgId, updatedAt: Date.now(), userId: memberId })
+    })
+
+    const projectId = await asOwner.mutation(api.project.create, {
+      name: 'Restricted Project',
+      orgId
+    })
+    let threw = false
+
+    try {
+      await asMember.mutation(api.project.update, {
+        id: projectId,
+        name: 'Should Fail',
+        orgId
+      })
+    } catch (error) {
+      threw = true
+      expect(String(error)).toContain('FORBIDDEN')
+    }
+
+    expect(threw).toBe(true)
+  })
+
+  test('non-editor member CANNOT delete project', async () => {
+    const ctx = t(),
+      ownerId = await createUserAndGetId(ctx),
+      memberId = await createSecondUserAndGetId(ctx),
+      asOwner = ctx.withIdentity({ subject: ownerId, tokenIdentifier: `test|${ownerId}` }),
+      asMember = ctx.withIdentity({ subject: memberId, tokenIdentifier: `test|${memberId}` }),
+      orgId = await ctx.run(async c =>
+        c.db.insert('org', { name: 'Test Org', slug: 'test-org-acl-6', updatedAt: Date.now(), userId: ownerId })
+      )
+
+    await ctx.run(async c => {
+      await c.db.insert('orgMember', { isAdmin: false, orgId, updatedAt: Date.now(), userId: memberId })
+    })
+
+    const projectId = await asOwner.mutation(api.project.create, {
+      name: 'Cannot Delete Project',
+      orgId
+    })
+    let threw = false
+
+    try {
+      await asMember.mutation(api.project.rm, { id: projectId, orgId })
+    } catch (error) {
+      threw = true
+      expect(String(error)).toContain('FORBIDDEN')
+    }
+
+    expect(threw).toBe(true)
+  })
+
+  test('editor can toggle task on parent project', async () => {
+    const ctx = t(),
+      ownerId = await createUserAndGetId(ctx),
+      memberId = await createSecondUserAndGetId(ctx),
+      asOwner = ctx.withIdentity({ subject: ownerId, tokenIdentifier: `test|${ownerId}` }),
+      asMember = ctx.withIdentity({ subject: memberId, tokenIdentifier: `test|${memberId}` }),
+      orgId = await ctx.run(async c =>
+        c.db.insert('org', { name: 'Test Org', slug: 'test-org-acl-7', updatedAt: Date.now(), userId: ownerId })
+      )
+
+    await ctx.run(async c => {
+      await c.db.insert('orgMember', { isAdmin: false, orgId, updatedAt: Date.now(), userId: memberId })
+    })
+
+    const projectId = await asOwner.mutation(api.project.create, {
+      name: 'Task Project',
+      orgId
+    })
+
+    await asOwner.mutation(api.project.addEditor, { editorId: memberId, orgId, projectId })
+
+    const taskId = await asOwner.mutation(api.task.create, {
+        orgId,
+        projectId,
+        title: 'Toggle Me'
+      }),
+      toggled = await asMember.mutation(api.task.toggle, { id: taskId, orgId })
+    expect((toggled as { completed?: boolean }).completed).toBe(true)
+  })
+
+  test('non-editor member CANNOT toggle task', async () => {
+    const ctx = t(),
+      ownerId = await createUserAndGetId(ctx),
+      memberId = await createSecondUserAndGetId(ctx),
+      asOwner = ctx.withIdentity({ subject: ownerId, tokenIdentifier: `test|${ownerId}` }),
+      asMember = ctx.withIdentity({ subject: memberId, tokenIdentifier: `test|${memberId}` }),
+      orgId = await ctx.run(async c =>
+        c.db.insert('org', { name: 'Test Org', slug: 'test-org-acl-8', updatedAt: Date.now(), userId: ownerId })
+      )
+
+    await ctx.run(async c => {
+      await c.db.insert('orgMember', { isAdmin: false, orgId, updatedAt: Date.now(), userId: memberId })
+    })
+
+    const projectId = await asOwner.mutation(api.project.create, {
+        name: 'No Toggle Project',
+        orgId
+      }),
+      taskId = await asOwner.mutation(api.task.create, {
+        orgId,
+        projectId,
+        title: 'Cannot Toggle'
+      })
+    let threw = false
+
+    try {
+      await asMember.mutation(api.task.toggle, { id: taskId, orgId })
+    } catch (error) {
+      threw = true
+      expect(String(error)).toContain('FORBIDDEN')
+    }
+
+    expect(threw).toBe(true)
+  })
+
+  test('addEditor mutation works', async () => {
+    const ctx = t(),
+      ownerId = await createUserAndGetId(ctx),
+      memberId = await createSecondUserAndGetId(ctx),
+      asOwner = ctx.withIdentity({ subject: ownerId, tokenIdentifier: `test|${ownerId}` }),
+      orgId = await ctx.run(async c =>
+        c.db.insert('org', { name: 'Test Org', slug: 'test-org-acl-9', updatedAt: Date.now(), userId: ownerId })
+      )
+
+    await ctx.run(async c => {
+      await c.db.insert('orgMember', { isAdmin: false, orgId, updatedAt: Date.now(), userId: memberId })
+    })
+
+    const projectId = await asOwner.mutation(api.project.create, {
+        name: 'Add Editor Project',
+        orgId
+      }),
+      result = await asOwner.mutation(api.project.addEditor, { editorId: memberId, orgId, projectId })
+    expect((result as { editors?: string[] }).editors).toContain(String(memberId))
+  })
+
+  test('removeEditor mutation works', async () => {
+    const ctx = t(),
+      ownerId = await createUserAndGetId(ctx),
+      memberId = await createSecondUserAndGetId(ctx),
+      asOwner = ctx.withIdentity({ subject: ownerId, tokenIdentifier: `test|${ownerId}` }),
+      orgId = await ctx.run(async c =>
+        c.db.insert('org', { name: 'Test Org', slug: 'test-org-acl-10', updatedAt: Date.now(), userId: ownerId })
+      )
+
+    await ctx.run(async c => {
+      await c.db.insert('orgMember', { isAdmin: false, orgId, updatedAt: Date.now(), userId: memberId })
+    })
+
+    const projectId = await asOwner.mutation(api.project.create, {
+      name: 'Remove Editor Project',
+      orgId
+    })
+
+    await asOwner.mutation(api.project.addEditor, { editorId: memberId, orgId, projectId })
+    const result = await asOwner.mutation(api.project.removeEditor, { editorId: memberId, orgId, projectId })
+    expect((result as { editors?: string[] }).editors).toBeDefined()
+    expect((result as { editors?: string[] }).editors).not.toContain(String(memberId))
+  })
+
+  test('non-admin cannot addEditor', async () => {
+    const ctx = t(),
+      ownerId = await createUserAndGetId(ctx),
+      memberId = await createSecondUserAndGetId(ctx),
+      editorId = await createThirdUserAndGetId(ctx),
+      asOwner = ctx.withIdentity({ subject: ownerId, tokenIdentifier: `test|${ownerId}` }),
+      asMember = ctx.withIdentity({ subject: memberId, tokenIdentifier: `test|${memberId}` }),
+      orgId = await ctx.run(async c =>
+        c.db.insert('org', { name: 'Test Org', slug: 'test-org-acl-11', updatedAt: Date.now(), userId: ownerId })
+      )
+
+    await ctx.run(async c => {
+      await c.db.insert('orgMember', { isAdmin: false, orgId, updatedAt: Date.now(), userId: memberId })
+      await c.db.insert('orgMember', { isAdmin: false, orgId, updatedAt: Date.now(), userId: editorId })
+    })
+
+    const projectId = await asOwner.mutation(api.project.create, {
+      name: 'No Add Editor Project',
+      orgId
+    })
+    let threw = false
+
+    try {
+      await asMember.mutation(api.project.addEditor, { editorId, orgId, projectId })
+    } catch (error) {
+      threw = true
+      expect(String(error)).toContain('INSUFFICIENT_ORG_ROLE')
+    }
+
+    expect(threw).toBe(true)
+  })
+
+  test('addEditor rejects non-org-member', async () => {
+    const ctx = t(),
+      ownerId = await createUserAndGetId(ctx),
+      nonMemberId = await createSecondUserAndGetId(ctx),
+      asOwner = ctx.withIdentity({ subject: ownerId, tokenIdentifier: `test|${ownerId}` }),
+      orgId = await ctx.run(async c =>
+        c.db.insert('org', { name: 'Test Org', slug: 'test-org-acl-12', updatedAt: Date.now(), userId: ownerId })
+      ),
+      projectId = await asOwner.mutation(api.project.create, {
+        name: 'Reject Non-Member Project',
+        orgId
+      })
+    let threw = false
+
+    try {
+      await asOwner.mutation(api.project.addEditor, { editorId: nonMemberId, orgId, projectId })
+    } catch (error) {
+      threw = true
+      expect(String(error)).toContain('NOT_ORG_MEMBER')
+    }
+
+    expect(threw).toBe(true)
+  })
+})
+
+describe('wiki ACL', () => {
+  test('wiki creator can update own wiki', async () => {
+    const ctx = t(),
+      ownerId = await createUserAndGetId(ctx),
+      asOwner = ctx.withIdentity({ subject: ownerId, tokenIdentifier: `test|${ownerId}` }),
+      orgId = await ctx.run(async c =>
+        c.db.insert('org', { name: 'Test Org', slug: 'test-org-wiki-1', updatedAt: Date.now(), userId: ownerId })
+      ),
+      wikiId = await asOwner.mutation(api.wiki.create, {
+        content: 'Original content',
+        orgId,
+        slug: 'test-wiki-1',
+        status: 'draft',
+        title: 'Test Wiki'
+      }),
+      updated = await asOwner.mutation(api.wiki.update, {
+        id: wikiId,
+        orgId,
+        title: 'Updated Wiki'
+      })
+
+    expect(updated.title).toBe('Updated Wiki')
+  })
+
+  test('editor in editors[] can update wiki', async () => {
+    const ctx = t(),
+      ownerId = await createUserAndGetId(ctx),
+      memberId = await createSecondUserAndGetId(ctx),
+      asOwner = ctx.withIdentity({ subject: ownerId, tokenIdentifier: `test|${ownerId}` }),
+      asMember = ctx.withIdentity({ subject: memberId, tokenIdentifier: `test|${memberId}` }),
+      orgId = await ctx.run(async c =>
+        c.db.insert('org', { name: 'Test Org', slug: 'test-org-wiki-2', updatedAt: Date.now(), userId: ownerId })
+      )
+
+    await ctx.run(async c => {
+      await c.db.insert('orgMember', { isAdmin: false, orgId, updatedAt: Date.now(), userId: memberId })
+    })
+
+    const wikiId = await asOwner.mutation(api.wiki.create, {
+      content: 'Wiki content',
+      orgId,
+      slug: 'test-wiki-2',
+      status: 'draft',
+      title: 'Editable Wiki'
+    })
+
+    await asOwner.mutation(api.wiki.addEditor, { editorId: memberId, orgId, wikiId })
+
+    const updated = await asMember.mutation(api.wiki.update, {
+      id: wikiId,
+      orgId,
+      title: 'Updated by Editor'
+    })
+
+    expect(updated.title).toBe('Updated by Editor')
+  })
+
+  test('non-editor member CANNOT update wiki', async () => {
+    const ctx = t(),
+      ownerId = await createUserAndGetId(ctx),
+      memberId = await createSecondUserAndGetId(ctx),
+      asOwner = ctx.withIdentity({ subject: ownerId, tokenIdentifier: `test|${ownerId}` }),
+      asMember = ctx.withIdentity({ subject: memberId, tokenIdentifier: `test|${memberId}` }),
+      orgId = await ctx.run(async c =>
+        c.db.insert('org', { name: 'Test Org', slug: 'test-org-wiki-3', updatedAt: Date.now(), userId: ownerId })
+      )
+
+    await ctx.run(async c => {
+      await c.db.insert('orgMember', { isAdmin: false, orgId, updatedAt: Date.now(), userId: memberId })
+    })
+
+    const wikiId = await asOwner.mutation(api.wiki.create, {
+      content: 'Restricted wiki',
+      orgId,
+      slug: 'test-wiki-3',
+      status: 'draft',
+      title: 'Restricted Wiki'
+    })
+    let threw = false
+
+    try {
+      await asMember.mutation(api.wiki.update, {
+        id: wikiId,
+        orgId,
+        title: 'Should Fail'
+      })
+    } catch (error) {
+      threw = true
+      expect(String(error)).toContain('FORBIDDEN')
+    }
+
+    expect(threw).toBe(true)
+  })
+
+  test('non-editor member CANNOT delete wiki', async () => {
+    const ctx = t(),
+      ownerId = await createUserAndGetId(ctx),
+      memberId = await createSecondUserAndGetId(ctx),
+      asOwner = ctx.withIdentity({ subject: ownerId, tokenIdentifier: `test|${ownerId}` }),
+      asMember = ctx.withIdentity({ subject: memberId, tokenIdentifier: `test|${memberId}` }),
+      orgId = await ctx.run(async c =>
+        c.db.insert('org', { name: 'Test Org', slug: 'test-org-wiki-4', updatedAt: Date.now(), userId: ownerId })
+      )
+
+    await ctx.run(async c => {
+      await c.db.insert('orgMember', { isAdmin: false, orgId, updatedAt: Date.now(), userId: memberId })
+    })
+
+    const wikiId = await asOwner.mutation(api.wiki.create, {
+      content: 'Cannot delete',
+      orgId,
+      slug: 'test-wiki-4',
+      status: 'draft',
+      title: 'Cannot Delete Wiki'
+    })
+    let threw = false
+
+    try {
+      await asMember.mutation(api.wiki.rm, { id: wikiId, orgId })
+    } catch (error) {
+      threw = true
+      expect(String(error)).toContain('FORBIDDEN')
+    }
+
+    expect(threw).toBe(true)
+  })
+
+  test('addEditor mutation works', async () => {
+    const ctx = t(),
+      ownerId = await createUserAndGetId(ctx),
+      memberId = await createSecondUserAndGetId(ctx),
+      asOwner = ctx.withIdentity({ subject: ownerId, tokenIdentifier: `test|${ownerId}` }),
+      orgId = await ctx.run(async c =>
+        c.db.insert('org', { name: 'Test Org', slug: 'test-org-wiki-5', updatedAt: Date.now(), userId: ownerId })
+      )
+
+    await ctx.run(async c => {
+      await c.db.insert('orgMember', { isAdmin: false, orgId, updatedAt: Date.now(), userId: memberId })
+    })
+
+    const wikiId = await asOwner.mutation(api.wiki.create, {
+        content: 'Add editor test',
+        orgId,
+        slug: 'test-wiki-5',
+        status: 'draft',
+        title: 'Add Editor Wiki'
+      }),
+      result = await asOwner.mutation(api.wiki.addEditor, { editorId: memberId, orgId, wikiId })
+
+    expect((result as { editors?: string[] }).editors).toContain(String(memberId))
+  })
+
+  test('removeEditor mutation works', async () => {
+    const ctx = t(),
+      ownerId = await createUserAndGetId(ctx),
+      memberId = await createSecondUserAndGetId(ctx),
+      asOwner = ctx.withIdentity({ subject: ownerId, tokenIdentifier: `test|${ownerId}` }),
+      orgId = await ctx.run(async c =>
+        c.db.insert('org', { name: 'Test Org', slug: 'test-org-wiki-6', updatedAt: Date.now(), userId: ownerId })
+      )
+
+    await ctx.run(async c => {
+      await c.db.insert('orgMember', { isAdmin: false, orgId, updatedAt: Date.now(), userId: memberId })
+    })
+
+    const wikiId = await asOwner.mutation(api.wiki.create, {
+      content: 'Remove editor test',
+      orgId,
+      slug: 'test-wiki-6',
+      status: 'draft',
+      title: 'Remove Editor Wiki'
+    })
+
+    await asOwner.mutation(api.wiki.addEditor, { editorId: memberId, orgId, wikiId })
+    const result = await asOwner.mutation(api.wiki.removeEditor, { editorId: memberId, orgId, wikiId })
+
+    expect((result as { editors?: string[] }).editors).toBeDefined()
+    expect((result as { editors?: string[] }).editors).not.toContain(String(memberId))
+  })
+
+  test('non-admin cannot addEditor', async () => {
+    const ctx = t(),
+      ownerId = await createUserAndGetId(ctx),
+      memberId = await createSecondUserAndGetId(ctx),
+      editorId = await createThirdUserAndGetId(ctx),
+      asOwner = ctx.withIdentity({ subject: ownerId, tokenIdentifier: `test|${ownerId}` }),
+      asMember = ctx.withIdentity({ subject: memberId, tokenIdentifier: `test|${memberId}` }),
+      orgId = await ctx.run(async c =>
+        c.db.insert('org', { name: 'Test Org', slug: 'test-org-wiki-7', updatedAt: Date.now(), userId: ownerId })
+      )
+
+    await ctx.run(async c => {
+      await c.db.insert('orgMember', { isAdmin: false, orgId, updatedAt: Date.now(), userId: memberId })
+      await c.db.insert('orgMember', { isAdmin: false, orgId, updatedAt: Date.now(), userId: editorId })
+    })
+
+    const wikiId = await asOwner.mutation(api.wiki.create, {
+      content: 'No add editor test',
+      orgId,
+      slug: 'test-wiki-7',
+      status: 'draft',
+      title: 'No Add Editor Wiki'
+    })
+    let threw = false
+
+    try {
+      await asMember.mutation(api.wiki.addEditor, { editorId, orgId, wikiId })
+    } catch (error) {
+      threw = true
+      expect(String(error)).toContain('INSUFFICIENT_ORG_ROLE')
+    }
+
+    expect(threw).toBe(true)
+  })
+
+  test('addEditor rejects non-org-member', async () => {
+    const ctx = t(),
+      ownerId = await createUserAndGetId(ctx),
+      nonMemberId = await createSecondUserAndGetId(ctx),
+      asOwner = ctx.withIdentity({ subject: ownerId, tokenIdentifier: `test|${ownerId}` }),
+      orgId = await ctx.run(async c =>
+        c.db.insert('org', { name: 'Test Org', slug: 'test-org-wiki-8', updatedAt: Date.now(), userId: ownerId })
+      ),
+      wikiId = await asOwner.mutation(api.wiki.create, {
+        content: 'Reject non-member test',
+        orgId,
+        slug: 'test-wiki-8',
+        status: 'draft',
+        title: 'Reject Non-Member Wiki'
+      })
+    let threw = false
+
+    try {
+      await asOwner.mutation(api.wiki.addEditor, { editorId: nonMemberId, orgId, wikiId })
+    } catch (error) {
+      threw = true
+      expect(String(error)).toContain('NOT_ORG_MEMBER')
+    }
+
+    expect(threw).toBe(true)
+  })
+
+  test('setEditors replaces all editors', async () => {
+    const ctx = t(),
+      ownerId = await createUserAndGetId(ctx),
+      memberId1 = await createSecondUserAndGetId(ctx),
+      memberId2 = await createThirdUserAndGetId(ctx),
+      asOwner = ctx.withIdentity({ subject: ownerId, tokenIdentifier: `test|${ownerId}` }),
+      orgId = await ctx.run(async c =>
+        c.db.insert('org', { name: 'Test Org', slug: 'test-org-wiki-9', updatedAt: Date.now(), userId: ownerId })
+      )
+
+    await ctx.run(async c => {
+      await c.db.insert('orgMember', { isAdmin: false, orgId, updatedAt: Date.now(), userId: memberId1 })
+      await c.db.insert('orgMember', { isAdmin: false, orgId, updatedAt: Date.now(), userId: memberId2 })
+    })
+
+    const wikiId = await asOwner.mutation(api.wiki.create, {
+      content: 'Set editors test',
+      orgId,
+      slug: 'test-wiki-9',
+      status: 'draft',
+      title: 'Set Editors Wiki'
+    })
+
+    await asOwner.mutation(api.wiki.addEditor, { editorId: memberId1, orgId, wikiId })
+    const result = await asOwner.mutation(api.wiki.setEditors, { editorIds: [memberId2], orgId, wikiId })
+
+    expect((result as { editors?: string[] }).editors).toContain(String(memberId2))
+    expect((result as { editors?: string[] }).editors).not.toContain(String(memberId1))
+  })
+
+  test('editors query returns resolved users', async () => {
+    const ctx = t(),
+      ownerId = await createUserAndGetId(ctx),
+      memberId = await createSecondUserAndGetId(ctx),
+      asOwner = ctx.withIdentity({ subject: ownerId, tokenIdentifier: `test|${ownerId}` }),
+      orgId = await ctx.run(async c =>
+        c.db.insert('org', { name: 'Test Org', slug: 'test-org-wiki-10', updatedAt: Date.now(), userId: ownerId })
+      )
+
+    await ctx.run(async c => {
+      await c.db.insert('orgMember', { isAdmin: false, orgId, updatedAt: Date.now(), userId: memberId })
+    })
+
+    const wikiId = await asOwner.mutation(api.wiki.create, {
+      content: 'Editors query test',
+      orgId,
+      slug: 'test-wiki-10',
+      status: 'draft',
+      title: 'Editors Query Wiki'
+    })
+
+    await asOwner.mutation(api.wiki.addEditor, { editorId: memberId, orgId, wikiId })
+    const editors = await asOwner.query(api.wiki.editors, { orgId, wikiId })
+
+    expect(editors.length).toBe(1)
+    expect(editors[0]?.name).toBe(mockUser2.name)
+    expect(editors[0]?.email).toBe(mockUser2.email)
+  })
+})
+
+describe('where clause types', () => {
+  test('BlogWhere type is correctly shaped', async () => {
+    const { owned } = await import('../t')
+
+    interface BlogWhere {
+      category?: 'life' | 'tech' | 'tutorial'
+      content?: string
+      or?: BlogWhere[]
+      own?: boolean
+      published?: boolean
+      tags?: string[]
+      title?: string
+    }
+
+    const testWhere: BlogWhere = {
+      category: 'tech',
+      published: true
+    }
+
+    expect(testWhere.category).toBe('tech')
+    expect(owned.blog.shape.category).toBeDefined()
+  })
+})

@@ -1,0 +1,12 @@
+import { execSync } from 'node:child_process'
+
+const globalTeardown = async () => {
+  try {
+    execSync('bun with-env convex env remove CONVEX_TEST_MODE', { cwd: '../../packages/cv', stdio: 'pipe' })
+    console.log('CONVEX_TEST_MODE disabled on server')
+  } catch {
+    console.log('CONVEX_TEST_MODE was not set (already clean)')
+  }
+}
+
+export default globalTeardown
