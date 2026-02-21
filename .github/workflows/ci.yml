@@ -26,16 +26,16 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: bun i && bun typecheck
 
-  lint-mobile:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: oven-sh/setup-bun@v2
-      - run: brew install swiftformat swiftlint ktlint yamllint && bun i && bun lint:mobile
-
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - uses: oven-sh/setup-bun@v2
       - run: bun i && cp .env.example .env && bun run build
+
+  mobile:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v2
+      - run: brew install swiftformat swiftlint ktlint yamllint && bun i && bun fix:mobile
