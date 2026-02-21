@@ -29,7 +29,7 @@ internal let package = Package(
                 package: "convex-swift",
                 condition: .when(platforms: [.iOS, .macOS])
             ),
-        ], resources: [.process("Resources")], plugins: [.plugin(name: "skipstone", package: "skip")]),
+        ], plugins: [.plugin(name: "skipstone", package: "skip")]),
         .testTarget(name: "ConvexSharedTests", dependencies: [
             "ConvexShared",
             .product(name: "SkipTest", package: "skip"),
