@@ -26,6 +26,7 @@ disabled_rules:
   - prefer_asset_symbols
   - expiring_todo
   - file_name
+  - file_types_order
   - discouraged_optional_boolean
   - discouraged_optional_collection
   - function_default_parameter_at_end
@@ -78,7 +79,6 @@ opt_in_rules:
   - fatal_error_message
   - file_header
   - file_name_no_space
-  - file_types_order
   - first_where
   - flatmap_over_map_reduce
   - force_unwrapping

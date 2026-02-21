@@ -7,7 +7,7 @@ internal let package = Package(
     defaultLocalization: "en",
     platforms: [.iOS(.v17), .macOS(.v14)],
     products: [
-        .library(name: "ChatApp", type: .dynamic, targets: ["ChatApp"]),
+        .library(name: "Chat", type: .dynamic, targets: ["Chat"]),
     ],
     dependencies: [
         .package(url: "https://source.skip.tools/skip.git", from: "1.7.2"),
@@ -15,13 +15,13 @@ internal let package = Package(
         .package(path: "../convex-shared"),
     ],
     targets: [
-        .target(name: "ChatApp", dependencies: [
+        .target(name: "Chat", dependencies: [
             .product(name: "SkipUI", package: "skip-ui"),
             .product(name: "ConvexShared", package: "convex-shared"),
-        ], resources: [.process("Resources")], plugins: [.plugin(name: "skipstone", package: "skip")]),
-        .testTarget(name: "ChatAppTests", dependencies: [
-            "ChatApp",
+        ], path: "Sources", resources: [.process("Resources")], plugins: [.plugin(name: "skipstone", package: "skip")]),
+        .testTarget(name: "ChatTests", dependencies: [
+            "Chat",
             .product(name: "SkipTest", package: "skip"),
-        ], resources: [.process("Resources")], plugins: [.plugin(name: "skipstone", package: "skip")]),
+        ], path: "Tests", resources: [.process("Resources")], plugins: [.plugin(name: "skipstone", package: "skip")]),
     ]
 )

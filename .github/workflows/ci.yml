@@ -51,10 +51,10 @@ jobs:
     strategy:
       matrix:
         app:
-          - { dir: blog, scheme: 'BlogApp App' }
-          - { dir: chat, scheme: 'ChatApp App' }
-          - { dir: movie, scheme: 'MovieApp App' }
-          - { dir: org, scheme: 'OrgApp App' }
+          - { dir: blog, scheme: 'App' }
+          - { dir: chat, scheme: 'App' }
+          - { dir: movie, scheme: 'App' }
+          - { dir: org, scheme: 'App' }
     steps:
       - uses: actions/checkout@v5
       - run: brew install skiptools/skip/skip

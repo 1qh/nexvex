@@ -7,7 +7,7 @@ internal let package = Package(
     defaultLocalization: "en",
     platforms: [.iOS(.v17), .macOS(.v14)],
     products: [
-        .library(name: "BlogApp", type: .dynamic, targets: ["BlogApp"]),
+        .library(name: "Blog", type: .dynamic, targets: ["Blog"]),
     ],
     dependencies: [
         .package(url: "https://source.skip.tools/skip.git", from: "1.7.2"),
@@ -15,13 +15,13 @@ internal let package = Package(
         .package(path: "../convex-shared"),
     ],
     targets: [
-        .target(name: "BlogApp", dependencies: [
+        .target(name: "Blog", dependencies: [
             .product(name: "SkipUI", package: "skip-ui"),
             .product(name: "ConvexShared", package: "convex-shared"),
-        ], resources: [.process("Resources")], plugins: [.plugin(name: "skipstone", package: "skip")]),
-        .testTarget(name: "BlogAppTests", dependencies: [
-            "BlogApp",
+        ], path: "Sources", resources: [.process("Resources")], plugins: [.plugin(name: "skipstone", package: "skip")]),
+        .testTarget(name: "BlogTests", dependencies: [
+            "Blog",
             .product(name: "SkipTest", package: "skip"),
-        ], resources: [.process("Resources")], plugins: [.plugin(name: "skipstone", package: "skip")]),
+        ], path: "Tests", resources: [.process("Resources")], plugins: [.plugin(name: "skipstone", package: "skip")]),
     ]
 )

@@ -66,11 +66,24 @@ Both SDKs use colon-separated format: `"module:function_name"` (NOT dots)
 
 - `"blog:list"`, `"blog:create"`, `"chat:read"`, `"message:list"`, `"movie:search"`, etc.
 
+### Compact Project Philosophy
+
+Every app follows the **same generic structure**. The folder name (`blog/`, `chat/`, `movie/`, `org/`) is the only differentiator — no app-name prefixes on files, classes, or directories.
+
+**Rules:**
+
+- **No app-name prefixes**: files and classes use generic names (`App.swift`, `Detail.swift`, `ListView`, `DetailViewModel`), never `BlogApp.swift` or `BlogDetailView`
+- **Flat sources**: Swift files live directly in `Sources/` and `Tests/` — no subfolder nesting
+- **Consolidate per feature**: each feature merges its view + viewmodel into one file (`Detail.swift` = `DetailView` + `DetailViewModel`)
+- **SPM module names stay unique** (`Blog`, `Chat`, `Movie`, `Org`) because Swift requires it — everything else is generic
+- **Darwin uses generic names**: `App.xcconfig`, `App.xcodeproj`, `App.xcscheme` — identical across all 4 apps
+- **PRODUCT_NAME stays unique** (`Blog`, `Chat`, `Movie`, `Org`) in `Skip.env` for bundle identity
+
 ### Project Structure
 
 ```
 mobile/
-  ConvexShared/              <- Shared SPM package (transpiled)
+  convex-shared/             <- Shared SPM package (transpiled)
     Package.swift
     Sources/ConvexShared/
       Skip/skip.yml           mode: 'transpiled'
@@ -80,19 +93,53 @@ mobile/
       AuthView.swift          Shared login/register UI (used by Blog, Chat, Org)
       FileService.swift       Convex file upload + image compression
 
-  movie/                     <- Skip Lite app (skip init --appid=...)
-    Package.swift             depends on ConvexShared
-    Skip.env                  CONVEX_URL
-    Sources/MovieApp/
-      Skip/skip.yml           mode: 'transpiled'
-      MovieAppApp.swift
-      SearchView.swift
-      DetailView.swift
-      MovieViewModel.swift
-
   blog/                      <- Skip Lite app
-  chat/                      <- Skip Lite app
-  org/                       <- Skip Lite app
+    Package.swift             target "Blog", path: "Sources"
+    Skip.env                  PRODUCT_NAME=Blog
+    Sources/                  flat — no subfolder
+      Skip/skip.yml
+      App.swift               RootView + AppDelegate + ContentView
+      Detail.swift            DetailView + DetailViewModel
+      Form.swift              FormMode + FormView + FormViewModel
+      List.swift              CardView + ListView + ListViewModel
+      Profile.swift           ProfileView + ProfileViewModel
+      Resources/
+    Tests/                    flat — no subfolder
+      AppTests.swift
+      XCSkipTests.swift
+      Resources/
+      Skip/
+    Darwin/
+      App.xcconfig            #include "../Skip.env"
+      App.xcodeproj/
+        xcshareddata/xcschemes/App.xcscheme
+      Assets.xcassets/
+      Sources/Main.swift
+    Project.xcworkspace/
+    Android/
+
+  chat/                      <- same structure, target "Chat"
+    Sources/
+      App.swift               RootView + AppDelegate + ContentView
+      List.swift              ListView + ListViewModel
+      Message.swift           MessageBubble + MessageView + MessageViewModel
+      Public.swift            PublicView
+  movie/                     <- same structure, target "Movie"
+    Sources/
+      App.swift               RootView + AppDelegate + ContentView
+      Detail.swift            FetchByIDView + DetailContent + DetailView + DetailViewModel
+      Search.swift            ResultRow + SearchView + SearchViewModel
+  org/                       <- same structure, target "Org"
+    Sources/
+      App.swift               RootView + AppDelegate + ContentView
+      Home.swift              Tab + HomeView
+      Switcher.swift          RoleBadge + SwitcherView + SwitcherViewModel
+      Settings.swift          SettingsView
+      Onboarding.swift        OnboardingView
+      Members.swift           MembersView + MembersViewModel
+      Projects.swift          ProjectsView + ProjectsViewModel
+      Tasks.swift             PriorityBadge + TasksView + TasksViewModel
+      Wiki.swift              WikiListView + WikiListViewModel + WikiEditView
 ```
 
 ### Auth Strategy

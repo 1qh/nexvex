@@ -1,10 +1,6 @@
-import OrgApp
+import Org
 import SwiftUI
 
-private typealias AppRootView = OrgAppRootView
-private typealias AppDelegate = OrgAppAppDelegate
-
-/// The entry point to the app simply loads the App implementation from SPM module.
 @main
 internal struct AppMain: App {
     @AppDelegateAdaptor(AppMainDelegate.self) var appDelegate
@@ -12,7 +8,7 @@ internal struct AppMain: App {
 
     var body: some Scene {
         WindowGroup {
-            AppRootView()
+            RootView()
         }
         .onChange(of: scenePhase) { _, newPhase in
             switch newPhase {
