@@ -47,23 +47,23 @@ jobs:
   build-swift:
     needs: lint-swift
     runs-on: macos-latest
-    timeout-minutes: 60
+    timeout-minutes: 30
+    strategy:
+      matrix:
+        app:
+          - { dir: blog, scheme: 'BlogApp App' }
+          - { dir: chat, scheme: 'ChatApp App' }
+          - { dir: movie, scheme: 'MovieApp App' }
+          - { dir: org, scheme: 'OrgApp App' }
     steps:
       - uses: actions/checkout@v5
       - run: brew install skiptools/skip/skip
-      - name: Build all apps (iOS + Android)
+      - name: Build ${{ matrix.app.dir }} (iOS + Android)
         run: |
-          set -eo pipefail
-          schemes=("BlogApp App" "ChatApp App" "MovieApp App" "OrgApp App")
-          dirs=(blog chat movie org)
-          for i in 0 1 2 3; do
-            echo "::group::${dirs[$i]}"
-            xcodebuild build \
-              -workspace "mobile/${dirs[$i]}/Project.xcworkspace" \
-              -scheme "${schemes[$i]}" \
-              -destination "generic/platform=iOS Simulator" \
-              -skipMacroValidation -skipPackagePluginValidation \
-              CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
-              ARCHS=arm64 SKIP_ACTION=build -quiet
-            echo "::endgroup::"
-          done
+          xcodebuild build \
+            -workspace "mobile/${{ matrix.app.dir }}/Project.xcworkspace" \
+            -scheme "${{ matrix.app.scheme }}" \
+            -destination "generic/platform=iOS Simulator" \
+            -skipMacroValidation -skipPackagePluginValidation \
+            CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            ARCHS=arm64 SKIP_ACTION=build -quiet
