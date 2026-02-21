@@ -55,7 +55,7 @@ public final class ConvexService: @unchecked Sendable {
 
     public func initialize(url: String) {
         lock.lock()
-        client = ConvexClient(deploymentURL: url)
+        client = ConvexClient(deploymentUrl: url)
         lock.unlock()
     }
 
