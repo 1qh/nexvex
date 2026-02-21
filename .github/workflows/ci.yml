@@ -33,9 +33,31 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: bun i && cp .env.example .env && bun run build
 
-  mobile:
+  mobile-lint:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v5
       - uses: oven-sh/setup-bun@v2
       - run: brew install swiftformat swiftlint ktlint yamllint && bun i && bun fix:mobile
+
+  mobile-build:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - run: brew install skiptools/skip/skip
+      - name: Build all apps (iOS + Android)
+        run: |
+          set -euo pipefail
+          declare -A apps=([blog]="BlogApp App" [chat]="ChatApp App" [movie]="MovieApp App" [org]="OrgApp App")
+          for dir in blog chat movie org; do
+            echo "::group::$dir"
+            xcodebuild build \
+              -workspace "mobile/$dir/Project.xcworkspace" \
+              -scheme "${apps[$dir]}" \
+              -destination "generic/platform=iOS Simulator" \
+              -skipMacroValidation -skipPackagePluginValidation \
+              CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+              SKIP_ACTION=build -quiet
+            echo "::endgroup::"
+          done
