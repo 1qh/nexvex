@@ -5,40 +5,40 @@ on:
     branches: ['*']
 
 jobs:
-  # format:
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v5
-  #     - uses: biomejs/setup-biome@v2
-  #     - run: biome ci --diagnostic-level=error
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: biomejs/setup-biome@v2
+      - run: biome ci --diagnostic-level=error
 
-  # lint:
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v5
-  #     - uses: oven-sh/setup-bun@v2
-  #     - run: bun i && bun lint
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v2
+      - run: bun i && bun lint
 
-  # typecheck:
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v5
-  #     - uses: oven-sh/setup-bun@v2
-  #     - run: bun i && bun typecheck
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v2
+      - run: bun i && bun typecheck
 
-  # build:
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v5
-  #     - uses: oven-sh/setup-bun@v2
-  #     - run: bun i && cp .env.example .env && bun run build
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v2
+      - run: bun i && cp .env.example .env && bun run build
 
-  # mobile-lint:
-  #   runs-on: macos-latest
-  #   steps:
-  #     - uses: actions/checkout@v5
-  #     - uses: oven-sh/setup-bun@v2
-  #     - run: brew install swiftformat swiftlint ktlint yamllint && bun i && bun fix:mobile
+  mobile-lint:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v2
+      - run: brew install swiftformat swiftlint ktlint yamllint && bun i && bun fix:mobile
 
   mobile-build:
     runs-on: macos-latest
