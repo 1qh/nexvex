@@ -7,22 +7,25 @@
     "tooling/*"
   ],
   "scripts": {
-    "build": "turbo run build",
+    "build:ts": "turbo run build",
     "clean": "git clean -xdf node_modules .turbo bun.lock",
     "clean:workspaces": "turbo run clean",
     "dev:blog": "turbo watch dev -F @a/blog -F @a/be",
     "dev:chat": "turbo watch dev -F @a/chat -F @a/be",
     "dev:movie": "turbo watch dev -F @a/movie -F @a/be",
     "dev:org": "turbo watch dev -F @a/org -F @a/be",
-    "fix": "sort-package-json **/package.json > /dev/null && (O=$(oxlint --fix --fix-suggestions --quiet 2>&1) || { echo \"$O\"; false; }) && (O=$(turbo lint --continue --output-logs=errors-only -- --fix --cache --cache-location .cache/.eslintcache 2>&1) || { echo \"$O\"; false; }) && biome check --fix --diagnostic-level=error > /dev/null && (O=$(turbo typecheck build --output-logs=errors-only 2>&1) || { echo \"$O\"; false; }) && (O=$(bun fix:mobile 2>&1) || { echo \"$O\"; false; })",
-    "fix:mobile": "(O=$(swiftformat . 2>&1) || { echo \"$O\"; false; }) && (swiftlint lint --fix > /dev/null 2>&1 || true) && (O=$(swiftlint lint --strict 2>&1) || { echo \"$O\"; false; }) && (ktlint --format '**/*.kt' > /dev/null 2>&1 || true) && (O=$(ktlint '**/*.kt' 2>&1) || { echo \"$O\"; false; }) && (O=$(yamllint . 2>&1) || { echo \"$O\"; false; })",
+    "fix": "bun format && bun lint:ts:fix && bun format && (O=$(turbo typecheck build --output-logs=errors-only 2>&1) || { echo \"$O\"; false; }) && bun format:swift && bun lint:swift",
+    "format": "sort-package-json **/package.json > /dev/null && biome check --fix --diagnostic-level=error > /dev/null",
+    "format:check": "sort-package-json --check '**/package.json' && biome ci --diagnostic-level=error",
+    "format:swift": "(O=$(swiftformat . 2>&1) || { echo \"$O\"; false; }) && (ktlint --format '**/*.kt' > /dev/null 2>&1 || true) && (O=$(ktlint '**/*.kt' 2>&1) || { echo \"$O\"; false; })",
     "postinstall": "bun lint:ws",
-    "lint": "turbo run lint --continue -- --cache --cache-location .cache/.eslintcache && oxlint --quiet",
-    "lint:fix": "turbo run lint --continue -- --fix --cache --cache-location .cache/.eslintcache",
+    "lint:swift": "(swiftlint lint --fix > /dev/null 2>&1 || true) && (O=$(swiftlint lint --strict 2>&1) || { echo \"$O\"; false; }) && (O=$(yamllint . 2>&1) || { echo \"$O\"; false; })",
+    "lint:ts": "turbo run lint --continue -- --cache --cache-location .cache/.eslintcache && oxlint --quiet",
+    "lint:ts:fix": "(O=$(oxlint --fix --fix-suggestions --quiet 2>&1) || { echo \"$O\"; false; }) && (O=$(turbo lint --continue --output-logs=errors-only -- --fix --cache --cache-location .cache/.eslintcache 2>&1) || { echo \"$O\"; false; })",
     "lint:ws": "sherif",
     "test:all": "bun fix && CONVEX_TEST_MODE=true bun --cwd packages/be with-env convex dev --once && bun --cwd packages/be with-env convex env set CONVEX_TEST_MODE true && SKIP_CONVEX_ENV_TOGGLE=1 turbo run test; EXIT=$?; bun --cwd packages/be with-env convex env remove CONVEX_TEST_MODE; exit $EXIT",
     "test:mobile": "mobile/maestro/run-all.sh",
-    "typecheck": "turbo run typecheck"
+    "tsc": "turbo run typecheck"
   },
   "devDependencies": {
     "@biomejs/biome": "latest",
