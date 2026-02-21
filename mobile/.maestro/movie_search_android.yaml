@@ -1,0 +1,17 @@
+appId: dev.lazyconvex.movie
+---
+- launchApp:
+    clearState: true
+- assertVisible: "Movie Search"
+- tapOn: "Search movies..."
+- inputText: "inception"
+- takeScreenshot: after_typing
+- back
+- takeScreenshot: after_back
+- tapOn:
+    point: "95%,14%"
+- takeScreenshot: after_button_tap
+- extendedWaitUntil:
+    notVisible: "Search for movies by title"
+    timeout: 20000
+- takeScreenshot: movie_search_results
