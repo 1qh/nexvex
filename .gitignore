@@ -3,7 +3,6 @@
 **/gradle/wrapper/gradle-wrapper.jar
 **/keystore.jks
 **/keystore.properties
-**/mipmap-*/
 *.bun-build
 *.cer
 *.dSYM
