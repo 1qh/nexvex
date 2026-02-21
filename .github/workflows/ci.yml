@@ -59,6 +59,6 @@ jobs:
               -destination "generic/platform=iOS Simulator" \
               -skipMacroValidation -skipPackagePluginValidation \
               CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
-              ONLY_ACTIVE_ARCH=YES SKIP_ACTION=build -quiet
+              ARCHS=arm64 SKIP_ACTION=build -quiet
             echo "::endgroup::"
           done

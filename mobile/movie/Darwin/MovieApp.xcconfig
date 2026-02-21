@@ -11,8 +11,6 @@ SKIP_ACTION = launch
 ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon
 ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor
 
-INFOPLIST_FILE = Info.plist
-GENERATE_INFOPLIST_FILE = YES
 
 // The user-visible name of the app (localizable)
 //INFOPLIST_KEY_CFBundleDisplayName = App Name
@@ -53,6 +51,5 @@ SWIFT_VERSION = 6
 // Development team ID for on-device testing
 CODE_SIGNING_REQUIRED = NO
 CODE_SIGN_STYLE = Automatic
-CODE_SIGN_ENTITLEMENTS = Entitlements.plist
 //CODE_SIGNING_IDENTITY = -
 //DEVELOPMENT_TEAM =
