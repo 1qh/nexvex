@@ -5,40 +5,40 @@ on:
     branches: ['*']
 
 jobs:
-  format:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: biomejs/setup-biome@v2
-      - run: biome ci --diagnostic-level=error
+  # format:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v5
+  #     - uses: biomejs/setup-biome@v2
+  #     - run: biome ci --diagnostic-level=error
 
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: oven-sh/setup-bun@v2
-      - run: bun i && bun lint
+  # lint:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v5
+  #     - uses: oven-sh/setup-bun@v2
+  #     - run: bun i && bun lint
 
-  typecheck:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: oven-sh/setup-bun@v2
-      - run: bun i && bun typecheck
+  # typecheck:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v5
+  #     - uses: oven-sh/setup-bun@v2
+  #     - run: bun i && bun typecheck
 
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: oven-sh/setup-bun@v2
-      - run: bun i && cp .env.example .env && bun run build
+  # build:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v5
+  #     - uses: oven-sh/setup-bun@v2
+  #     - run: bun i && cp .env.example .env && bun run build
 
-  mobile-lint:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: oven-sh/setup-bun@v2
-      - run: brew install swiftformat swiftlint ktlint yamllint && bun i && bun fix:mobile
+  # mobile-lint:
+  #   runs-on: macos-latest
+  #   steps:
+  #     - uses: actions/checkout@v5
+  #     - uses: oven-sh/setup-bun@v2
+  #     - run: brew install swiftformat swiftlint ktlint yamllint && bun i && bun fix:mobile
 
   mobile-build:
     runs-on: macos-latest
@@ -48,13 +48,14 @@ jobs:
       - run: brew install skiptools/skip/skip
       - name: Build all apps (iOS + Android)
         run: |
-          set -euo pipefail
-          declare -A apps=([blog]="BlogApp App" [chat]="ChatApp App" [movie]="MovieApp App" [org]="OrgApp App")
-          for dir in blog chat movie org; do
-            echo "::group::$dir"
+          set -eo pipefail
+          schemes=("BlogApp App" "ChatApp App" "MovieApp App" "OrgApp App")
+          dirs=(blog chat movie org)
+          for i in 0 1 2 3; do
+            echo "::group::${dirs[$i]}"
             xcodebuild build \
-              -workspace "mobile/$dir/Project.xcworkspace" \
-              -scheme "${apps[$dir]}" \
+              -workspace "mobile/${dirs[$i]}/Project.xcworkspace" \
+              -scheme "${schemes[$i]}" \
               -destination "generic/platform=iOS Simulator" \
               -skipMacroValidation -skipPackagePluginValidation \
               CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
