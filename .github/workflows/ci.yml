@@ -49,6 +49,7 @@ jobs:
     runs-on: macos-latest
     timeout-minutes: 30
     strategy:
+      fail-fast: false
       matrix:
         app:
           - { dir: blog, scheme: 'App' }
@@ -66,4 +67,4 @@ jobs:
             -destination "generic/platform=iOS Simulator" \
             -skipMacroValidation -skipPackagePluginValidation \
             CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
-            ARCHS=arm64 SKIP_ACTION=build -quiet
+            ARCHS=arm64 SKIP_ACTION=none -quiet
