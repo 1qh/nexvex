@@ -55,6 +55,7 @@ public final class ConvexService: @unchecked Sendable {
 
     public func initialize(url: String) {
         lock.lock()
+        // swiftformat:disable:next acronyms
         client = ConvexClient(deploymentUrl: url)
         lock.unlock()
     }
