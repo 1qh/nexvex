@@ -826,86 +826,139 @@ After all apps are built:
 
 ---
 
+# Swift Core: Shared Foundation-Only Package
+
+## Why
+
+Mobile (`convex-shared`) is tied to Skip + SwiftUI + ConvexMobile — desktop can't depend on it.
+But Models, Error types, HTTP auth/file helpers are pure Foundation. Extract once, share everywhere.
+
+## Architecture
+
+```
+swift-core/                           <- NEW: Foundation-only, zero external deps
+  Package.swift
+  Sources/ConvexCore/
+    Models.swift                       All Codable structs (canonical source)
+    Error.swift                        ConvexError enum + URL constants
+    HTTP.swift                         Pure HTTP helpers extracted from mobile:
+                                         passwordAuth, startOAuth, finishOAuth,
+                                         extractOAuthCode, postFile, guessContentType
+    Format.swift                       formatTimestamp (from SharedUI.swift)
+  Tests/ConvexCoreTests/
+```
+
+## How Mobile Uses It (Symlinks, Not Dependencies)
+
+Skip transpiles Swift → Kotlin. It can only transpile files inside Skip-processed targets.
+If mobile depended on swift-core as a package, Skip wouldn't transpile ConvexCore types → Android breaks.
+
+**Solution**: Symlink shared files into ConvexShared. Skip processes symlinked files in-place.
+Mobile never adds swift-core as an SPM dependency — just filesystem symlinks.
+
+```
+mobile/convex-shared/Sources/ConvexShared/
+  Models.swift          -> symlink ../../swift-core/Sources/ConvexCore/Models.swift
+  Error.swift           -> symlink ../../swift-core/Sources/ConvexCore/Error.swift
+  HTTP.swift            -> symlink ../../swift-core/Sources/ConvexCore/HTTP.swift
+  Format.swift          -> symlink ../../swift-core/Sources/ConvexCore/Format.swift
+  ConvexService.swift    (unchanged — ConvexMobile wrapper)
+  AuthService.swift      (refactored — calls HTTP.swift helpers instead of private methods)
+  FileService.swift      (refactored — calls HTTP.swift helpers instead of private methods)
+  AuthView.swift         (unchanged — SwiftUI)
+  SharedUI.swift         (formatTimestamp removed — now in Format.swift)
+  ConvexShared.swift     (unchanged)
+  Skip/
+```
+
+When compiled:
+- **iOS/macOS**: symlinked files compile as part of ConvexShared module. `#if !SKIP` paths taken.
+- **Android**: Skip transpiles symlinked files to Kotlin. `#if SKIP` paths taken.
+- **Desktop**: imports ConvexCore module directly from swift-core package.
+
+One canonical source file per shared type. Zero duplication.
+
+## Refactoring Required (Mobile)
+
+1. Extract `performPasswordAuth`, `startOAuth`, `finishOAuth`, `extractCode` from AuthService.swift → HTTP.swift
+2. Extract `postFile`, `guessContentType` from FileService.swift → HTTP.swift
+3. Extract `formatTimestamp` from SharedUI.swift → Format.swift
+4. Replace originals with symlinks: rm files, ln -s to swift-core
+5. Verify mobile still builds: all 4 apps with SKIP_ACTION=build
+
+---
+
 # LazyConvex Desktop: 4 Cross-Platform Desktop Apps
 
 ## Goal
 
-Clone the 4 lazyconvex demo apps (Movie, Blog, Chat, Org) as native desktop apps using Swift and [SwiftCrossUI](https://github.com/moreSwift/swift-cross-ui). All apps connect to the same existing Convex backend. Target macOS (AppKitBackend) and Linux (GtkBackend).
+4 native desktop apps (Movie, Blog, Chat, Org) using [SwiftCrossUI](https://github.com/moreSwift/swift-cross-ui).
+Same Convex backend. Target macOS (AppKit) + Linux (GTK).
 
-## Architecture
+## SwiftCrossUI (not SwiftUI)
 
-### SwiftCrossUI (not SwiftUI)
-
-SwiftCrossUI is a SwiftUI-like framework for cross-platform desktop apps. It shares many API patterns with SwiftUI but is NOT SwiftUI. Code cannot be shared directly with the mobile (Skip/SwiftUI) apps.
-
-```
-import SwiftCrossUI          // NOT SwiftUI
-import DefaultBackend         // Auto-selects: AppKit (macOS), GTK (Linux), WinUI (Windows)
+```swift
+import SwiftCrossUI
+import DefaultBackend   // AppKit (macOS), GTK (Linux), WinUI (Windows)
 ```
 
-### Key API Differences from SwiftUI
+| SwiftUI (Mobile) | SwiftCrossUI (Desktop) |
+|----|-----|
+| `@Observable` | `@Observed` class (protocol, not macro) |
+| TabView | NavigationSplitView sidebar |
+| AsyncImage | Custom URLSession + Image |
+| .sheet() | NavigationStack push / overlay |
+| .searchable() | TextField + manual filter |
+| .swipeActions() | Context menu / buttons |
+| .withMediaPicker() | NSOpenPanel / GTK file dialog |
 
-| SwiftUI (Mobile) | SwiftCrossUI (Desktop) | Notes |
-|----|----|----|
-| `import SwiftUI` | `import SwiftCrossUI` | Different framework |
-| `@Observable` | `@Observed` class | Uses `Observable` protocol, not macro |
-| `TabView` | NavigationSplitView sidebar | No TabView available |
-| `AsyncImage` | Custom image loading via URLSession + `Image` | No built-in async image |
-| `.sheet()` | NavigationStack push or custom overlay | No sheet modifier |
-| `.confirmationDialog()` | Custom dialog / alert pattern | Limited |
-| `.searchable()` | TextField + manual filtering | No searchable modifier |
-| `.swipeActions()` | Context menu / buttons | No swipe actions on desktop |
-| `.withMediaPicker()` (SkipKit) | File picker dialog (NSOpenPanel / GTK) | Platform-specific |
+**Available**: HStack, VStack, ScrollView, NavigationStack, NavigationSplitView, NavigationLink,
+Button, TextField, TextEditor, Toggle, Picker, Slider, Checkbox, DatePicker, Menu,
+Text, Image, ProgressView, List, ForEach, Table, @State, @Binding, @Environment, @Observed
 
-### Available SwiftCrossUI Views
+## Convex Client: Pure HTTP + WebSocket
 
-**Layout**: HStack, VStack, ScrollView, Spacer, Divider, GeometryReader, Group
-**Navigation**: NavigationStack, NavigationLink, NavigationPath, NavigationSplitView
-**Controls**: Button, TextField, TextEditor, Toggle, Picker, Slider, Checkbox, DatePicker, Menu
-**Display**: Text, Image, ProgressView, List, ForEach, Table
-**State**: @State, @Binding, @Environment, @AppStorage, @Observed
+ConvexMobile SDK = iOS xcframework. Convex Kotlin SDK = Android. Neither works on desktop.
+Desktop needs a **pure Swift client** using Foundation:
 
-### Convex Client: Pure HTTP + WebSocket
+- **HTTP API**: `POST {CONVEX_URL}/api/query`, `/api/mutation`, `/api/action`
+- **WebSocket**: Convex sync protocol for real-time subscriptions
+- **URLSession**: all networking (available on all Swift platforms)
 
-The mobile apps use ConvexMobile Swift SDK (iOS xcframework) and Convex Kotlin SDK (Android). Neither works on desktop. Desktop apps need a **pure Swift Convex client** using:
+Auth HTTP helpers (password, OAuth start/finish) come from **ConvexCore** — no duplication.
+File upload HTTP helpers (postFile, guessContentType) come from **ConvexCore** — no duplication.
 
-- **HTTP API** for queries, mutations, and actions (`POST {CONVEX_URL}/api/query`, `/api/mutation`, `/api/action`)
-- **WebSocket** for real-time subscriptions (Convex sync protocol)
-- **Foundation URLSession** for all networking (available on all platforms via swift-corelibs-foundation)
+## Auth Strategy (Desktop)
 
-### Auth Strategy (Desktop)
+**Password**: ConvexCore.passwordAuth() → store token in macOS Keychain / Linux libsecret
+**Google OAuth**: system browser → Google → redirect to localhost callback → capture JWT
 
-**Password auth**: Same HTTP POST to `{CONVEX_URL}/api/auth/signin` as mobile. Store token in:
-- macOS: Keychain (via Security framework)
-- Linux: File-based encrypted storage or libsecret
-
-**Google OAuth**: Open system browser -> Google auth -> redirect to `http://localhost:{port}/callback` -> local HTTP server captures JWT -> store token.
-
-### Project Structure
+## Project Structure
 
 ```
+swift-core/                           <- Shared (see above)
+
 desktop/
-  shared/                       <- Shared Convex client + models
-    Package.swift
+  shared/                              <- Desktop-specific Convex client
+    Package.swift                       depends on swift-core + SwiftCrossUI
     Sources/Shared/
-      ConvexClient.swift          HTTP queries/mutations/actions via URLSession
-      ConvexSubscription.swift    WebSocket real-time subscriptions
-      AuthClient.swift            Password + Google OAuth (system browser flow)
-      FileClient.swift            File upload via HTTP
-      Models.swift                Codable data models (copied from mobile ConvexShared)
+      Client.swift                      HTTP queries/mutations/actions
+      Subscription.swift                WebSocket real-time subscriptions
+      Auth.swift                        ConvexCore.HTTP + macOS Keychain + browser OAuth
+      File.swift                        ConvexCore.HTTP + NSImage compression
     Tests/SharedTests/
 
-  blog/                         <- Blog desktop app
-    Package.swift                depends on shared
+  blog/                                <- Blog desktop app
+    Package.swift                       depends on desktop/shared
     Sources/Blog/
-      App.swift                  @main entry, WindowGroup
-      List.swift                 Blog list + search
-      Detail.swift               Blog detail view
-      Form.swift                 Create/edit form
-      Profile.swift              User profile
+      App.swift                         @main, WindowGroup
+      List.swift                        Blog list + search
+      Detail.swift                      Blog detail view
+      Form.swift                        Create/edit form
+      Profile.swift                     User profile
     Tests/BlogTests/
 
-  chat/                         <- Chat desktop app
+  chat/
     Package.swift
     Sources/Chat/
       App.swift
@@ -913,7 +966,7 @@ desktop/
       Message.swift
     Tests/ChatTests/
 
-  movie/                        <- Movie desktop app
+  movie/
     Package.swift
     Sources/Movie/
       App.swift
@@ -921,7 +974,7 @@ desktop/
       Detail.swift
     Tests/MovieTests/
 
-  org/                          <- Org desktop app
+  org/
     Package.swift
     Sources/Org/
       App.swift
@@ -936,50 +989,57 @@ desktop/
     Tests/OrgTests/
 ```
 
-### Compact Philosophy (Same as Mobile)
+## Compact Philosophy (Same as Mobile)
 
-- **No app-name prefixes**: generic file/class names (`App.swift`, `Detail.swift`)
-- **Consolidate per feature**: view + state in one file
-- **Folder name is the differentiator**: `blog/`, `chat/`, `movie/`, `org/`
-- **SPM targets stay unique**: `Blog`, `Chat`, `Movie`, `Org`
+- Generic names: `App.swift`, `Detail.swift`, `List.swift`
+- Consolidate per feature: view + state in one file
+- Folder name is the only differentiator
+- SPM target names stay unique: `Blog`, `Chat`, `Movie`, `Org`
 
-### Build & Run
+## Build & Run
 
 ```bash
 swift build --package-path desktop/blog
 swift run --package-path desktop/blog Blog
+swift test --package-path swift-core
 swift test --package-path desktop/shared
 swift test --package-path desktop/blog
 ```
 
 ## CI
 
-Add `desktop` path filter group to `changes` job. New jobs:
+Add `swift-core` + `desktop` path filters. swift-core changes trigger BOTH mobile and desktop CI.
 
-| Job | Runner | Depends On | What |
+| Job | Trigger | Runner | Depends On |
 |----|----|----|-----|
-| `build-desktop` | `macos-latest` | `changes` (if desktop=true) | `swift build` all 4 apps |
-| `test-desktop` | `build-desktop` | `build-desktop` | `swift test` shared + all 4 apps |
+| `build-desktop` | desktop or swift-core changed | `macos-latest` | changes |
+| `test-desktop` | same | `macos-latest` | build-desktop |
+| (existing) `build-swift` | swift or swift-core changed | `macos-latest` | lint-swift |
 
-Desktop Swift files covered by existing `lint-swift` job.
+Desktop Swift files covered by existing `lint-swift` job (add `desktop/**` + `swift-core/**` to swift path filter).
 
 ## Tasks
 
-### Phase 0: Shared Infrastructure (Convex Client)
+### Phase 0: Swift Core + Shared Infrastructure
 
-- [ ] **D0.1** Scaffold desktop/shared SPM Package
-- [ ] **D0.2** ConvexClient: HTTP queries/mutations/actions via URLSession
-- [ ] **D0.3** ConvexSubscription: WebSocket real-time via URLSessionWebSocketTask
-- [ ] **D0.4** AuthClient: password + Google OAuth (system browser + local callback server)
-- [ ] **D0.5** FileClient: upload via HTTP (generateUploadUrl mutation + POST)
-- [ ] **D0.6** Models: copy Codable structs from mobile ConvexShared
-- [ ] **D0.7** Unit tests for shared package
+- [ ] **D0.1** Create `swift-core/` SPM package (Package.swift, Sources/ConvexCore/, Tests/)
+- [ ] **D0.2** Move Models.swift → swift-core, create symlink in mobile/convex-shared
+- [ ] **D0.3** Move ConvexError enum + URL constants → swift-core/Error.swift, symlink in mobile
+- [ ] **D0.4** Extract HTTP helpers from AuthService + FileService → swift-core/HTTP.swift, symlink in mobile
+- [ ] **D0.5** Extract formatTimestamp → swift-core/Format.swift, symlink in mobile
+- [ ] **D0.6** Verify mobile still builds: all 4 apps with SKIP_ACTION=build
+- [ ] **D0.7** Scaffold desktop/shared (depends on swift-core + SwiftCrossUI)
+- [ ] **D0.8** Desktop ConvexClient: HTTP queries/mutations/actions via URLSession
+- [ ] **D0.9** Desktop ConvexSubscription: WebSocket real-time via URLSessionWebSocketTask
+- [ ] **D0.10** Desktop AuthClient: ConvexCore.HTTP helpers + macOS Keychain + browser OAuth
+- [ ] **D0.11** Desktop FileClient: ConvexCore.HTTP helpers + NSImage compression
+- [ ] **D0.12** Unit tests for swift-core + desktop/shared
 
 ### Phase 1: Movie App (No Auth, 2 Screens)
 
-- [ ] **D1.1** Scaffold movie desktop app (SPM executable, depends on shared + SwiftCrossUI)
-- [ ] **D1.2** Search screen: TextField + debounce, List of results, NavigationLink to detail
-- [ ] **D1.3** Detail screen: movie:load action, poster image via URLSession
+- [ ] **D1.1** Scaffold movie desktop app (depends on desktop/shared + SwiftCrossUI)
+- [ ] **D1.2** Search: TextField + debounce, List results, NavigationLink to detail
+- [ ] **D1.3** Detail: movie:load action, poster image via URLSession
 - [ ] **D1.4** Navigation + testing
 
 ### Phase 2: Blog App (Auth + CRUD + File Upload)
@@ -988,7 +1048,7 @@ Desktop Swift files covered by existing `lint-swift` job.
 - [ ] **D2.2** Auth view: sign in/up form, Google OAuth button
 - [ ] **D2.3** Blog list: subscribe blog:list, search, create button
 - [ ] **D2.4** Blog detail: subscribe blog:read, edit/delete if own
-- [ ] **D2.5** Create/edit form: TextField/TextEditor/Picker/Toggle, file picker, auto-save, conflict detection
+- [ ] **D2.5** Create/edit form: fields, file picker, auto-save, conflict detection
 - [ ] **D2.6** Profile: subscribe blogProfile:get, upsert
 - [ ] **D2.7** Navigation (NavigationSplitView) + testing
 
@@ -996,7 +1056,7 @@ Desktop Swift files covered by existing `lint-swift` job.
 
 - [ ] **D3.1** Scaffold chat desktop app
 - [ ] **D3.2** Chat list: subscribe chat:list, create/delete
-- [ ] **D3.3** Message view: subscribe message:list, send + AI action, tool approval
+- [ ] **D3.3** Message view: subscribe message:list, send + AI action
 - [ ] **D3.4** Navigation (NavigationSplitView) + testing
 
 ### Phase 4: Org App (Multi-Tenancy + Full Features)
@@ -1012,32 +1072,36 @@ Desktop Swift files covered by existing `lint-swift` job.
 
 ### Phase 5: CI Integration
 
-- [ ] **D5.1** Add desktop path filter + build/test jobs to ci.yml
-- [ ] **D5.2** Add package.json scripts (dev:desktop, build:desktop, test:desktop, clean:desktop)
-- [ ] **D5.3** Verify all CI jobs pass
+- [ ] **D5.1** Add swift-core + desktop path filters to ci.yml changes job
+- [ ] **D5.2** Add build-desktop + test-desktop jobs
+- [ ] **D5.3** Update swift path filter to include swift-core (triggers mobile rebuild too)
+- [ ] **D5.4** Add package.json scripts: dev:desktop, build:desktop, test:desktop, clean:desktop
+- [ ] **D5.5** Verify all CI jobs pass
 
 ---
 
 ## Desktop Final Verification
 
-- [ ] All 4 apps build with `swift build` on macOS
-- [ ] All 4 apps launch and display UI on macOS
-- [ ] Movie: search -> results -> detail
-- [ ] Blog: sign in -> create -> list -> edit -> delete; profile works
-- [ ] Chat: sign in -> create chat -> send -> AI responds; tool approval works
-- [ ] Org: onboarding -> org -> projects -> tasks -> wiki -> members
-- [ ] Real-time: data changes sync within 2 seconds across web/mobile/desktop
+- [ ] swift-core builds + tests pass
+- [ ] Mobile still builds after symlink refactoring (all 4 apps)
+- [ ] All 4 desktop apps build with `swift build` on macOS
+- [ ] All 4 desktop apps launch and display UI on macOS
+- [ ] Movie: search → results → detail
+- [ ] Blog: sign in → create → list → edit → delete; profile works
+- [ ] Chat: sign in → create chat → send → AI responds
+- [ ] Org: onboarding → org → projects → tasks → wiki → members
+- [ ] Real-time: data syncs within 2s across web/mobile/desktop
 - [ ] Auth (password + Google OAuth) works
 - [ ] File upload works
-- [ ] `swift test` passes for shared + all 4 apps
-- [ ] All CI jobs pass
+- [ ] `swift test` passes for swift-core + desktop/shared + all 4 apps
+- [ ] All CI jobs pass (including mobile rebuild triggered by swift-core changes)
 
-## Desktop Success Criteria
+## Success Criteria
 
-- 4 native desktop apps running on macOS (Linux build verified in CI)
-- Feature parity with mobile apps (core features)
-- All apps connect to the same Convex backend
-- Real-time subscriptions via WebSocket (not polling)
-- Auth working (email/password, Google OAuth via system browser)
+- 4 native desktop apps on macOS (Linux build verified in CI)
+- Feature parity with mobile (core features)
+- Same Convex backend, real-time WebSocket subscriptions
+- Zero code duplication: Models, Error, HTTP helpers shared via swift-core
+- Auth working (password + Google OAuth via system browser)
 - File upload working
-- Full CI: build + test + lint
+- Full CI: build + test + lint, path-filtered with swift-core triggering both tracks
