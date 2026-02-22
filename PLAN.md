@@ -1022,61 +1022,191 @@ Desktop Swift files covered by existing `lint-swift` job (add `desktop/**` + `sw
 
 ### Phase 0: Swift Core + Shared Infrastructure
 
-- [ ] **D0.1** Create `swift-core/` SPM package (Package.swift, Sources/ConvexCore/, Tests/)
-- [ ] **D0.2** Move Models.swift → swift-core, create symlink in mobile/convex-shared
-- [ ] **D0.3** Move ConvexError enum + URL constants → swift-core/Error.swift, symlink in mobile
-- [ ] **D0.4** Extract HTTP helpers from AuthService + FileService → swift-core/HTTP.swift, symlink in mobile
-- [ ] **D0.5** Extract formatTimestamp → swift-core/Format.swift, symlink in mobile
-- [ ] **D0.6** Verify mobile still builds: all 4 apps with SKIP_ACTION=build
-- [ ] **D0.7** Scaffold desktop/shared (depends on swift-core + SwiftCrossUI)
-- [ ] **D0.8** Desktop ConvexClient: HTTP queries/mutations/actions via URLSession
-- [ ] **D0.9** Desktop ConvexSubscription: WebSocket real-time via URLSessionWebSocketTask
-- [ ] **D0.10** Desktop AuthClient: ConvexCore.HTTP helpers + macOS Keychain + browser OAuth
-- [ ] **D0.11** Desktop FileClient: ConvexCore.HTTP helpers + NSImage compression
-- [ ] **D0.12** Unit tests for swift-core + desktop/shared
+ [ ] **D0.1** Create `swift-core/` SPM package (Package.swift, Sources/ConvexCore/, Tests/)
+ [ ] **D0.2** Move Models.swift → swift-core, create symlink in mobile/convex-shared
+ [ ] **D0.3** Move ConvexError enum + URL constants → swift-core/Error.swift, symlink in mobile
+ [ ] **D0.4** Extract HTTP helpers from AuthService + FileService → swift-core/HTTP.swift, symlink in mobile
+ [ ] **D0.5** Extract formatTimestamp → swift-core/Format.swift, symlink in mobile
+ [ ] **D0.6** Verify mobile still builds: all 4 apps with SKIP_ACTION=build
+ [ ] **D0.7** Scaffold desktop/shared (depends on swift-core + SwiftCrossUI)
+ [ ] **D0.8** Desktop ConvexClient: HTTP queries/mutations/actions via URLSession
+ [ ] **D0.9** Desktop ConvexSubscription: WebSocket real-time via URLSessionWebSocketTask
+ [ ] **D0.10** Desktop AuthClient: ConvexCore.HTTP helpers + macOS Keychain + browser OAuth
+ [ ] **D0.11** Desktop FileClient: ConvexCore.HTTP helpers + NSImage compression
+
+#### D0.T: swift-core + desktop/shared Tests
+
+**swift-core unit tests** (no network, mock data):
+ Model decoding: every struct from JSON (valid, missing optional fields, malformed)
+ PaginatedResult<T> decode: page array, cursor, isDone
+ ConvexError enum cases
+ HTTP request construction: passwordAuth builds correct POST body + headers
+ OAuth flow: startOAuth request body, finishOAuth request body, extractOAuthCode from URL
+ File upload: postFile request construction, guessContentType for all extensions
+ formatTimestamp: various timestamps, date styles
+ Edge cases: empty arrays, null fields, zero timestamps
+
+**desktop/shared integration tests** (requires running Convex):
+ ConvexClient: query returns data, mutation succeeds, action succeeds
+ ConvexClient: error handling (invalid function name, wrong args, network timeout)
+ ConvexSubscription: connect, receive initial data, receive update after mutation, reconnect after disconnect
+ AuthClient: sign up new user, sign in existing, sign out clears token, restore from cache
+ AuthClient: error handling (wrong password, duplicate email, invalid token)
+ FileClient: upload file returns storage ID, upload image with compression
+ FileClient: error handling (invalid upload URL, oversized file)
 
 ### Phase 1: Movie App (No Auth, 2 Screens)
 
-- [ ] **D1.1** Scaffold movie desktop app (depends on desktop/shared + SwiftCrossUI)
-- [ ] **D1.2** Search: TextField + debounce, List results, NavigationLink to detail
-- [ ] **D1.3** Detail: movie:load action, poster image via URLSession
-- [ ] **D1.4** Navigation + testing
+ [ ] **D1.1** Scaffold movie desktop app (depends on desktop/shared + SwiftCrossUI)
+ [ ] **D1.2** Search: TextField + debounce, List results, NavigationLink to detail
+ [ ] **D1.3** Detail: movie:load action, poster image via URLSession
+ [ ] **D1.4** Navigation: search → detail → back to search
+
+#### D1.T: Movie Tests
+
+ Search returns results for valid query ("Inception" → ≥1 result)
+ Search shows multiple results for broad query ("Batman" → >1)
+ Search shows empty state for gibberish query
+ Movie detail loads by TMDB ID (27205 → Inception)
+ Cache hit/miss detection: first fetch = miss, second fetch = hit
+ Loading state visible during fetch
+ Error state for invalid ID (0) and non-existent movie (999999999)
+ Navigation: search → tap result → detail → back → search preserved
+ Debounce: rapid typing doesn't fire multiple requests
 
 ### Phase 2: Blog App (Auth + CRUD + File Upload)
 
-- [ ] **D2.1** Scaffold blog desktop app
-- [ ] **D2.2** Auth view: sign in/up form, Google OAuth button
-- [ ] **D2.3** Blog list: subscribe blog:list, search, create button
-- [ ] **D2.4** Blog detail: subscribe blog:read, edit/delete if own
-- [ ] **D2.5** Create/edit form: fields, file picker, auto-save, conflict detection
-- [ ] **D2.6** Profile: subscribe blogProfile:get, upsert
-- [ ] **D2.7** Navigation (NavigationSplitView) + testing
+ [ ] **D2.1** Scaffold blog desktop app
+ [ ] **D2.2** Auth view: sign in/up form, Google OAuth button
+ [ ] **D2.3** Blog list: subscribe blog:list, search, create button
+ [ ] **D2.4** Blog detail: subscribe blog:read, edit/delete if own
+ [ ] **D2.5** Create/edit form: fields, file picker, auto-save, conflict detection
+ [ ] **D2.6** Profile: subscribe blogProfile:get, upsert
+ [ ] **D2.7** Navigation (NavigationSplitView)
+
+#### D2.T: Blog Tests
+
+**Auth:**
+ Sign up with new email → authenticated state
+ Sign in with existing email/password → authenticated
+ Sign in with wrong password → error shown
+ Sign out → unauthenticated, token cleared
+ App launch restores cached auth token
+
+**CRUD Create:**
+ Create blog with title + content → appears in list
+ Form validates required fields (empty title rejected)
+ Category picker works (tech/life/tutorial)
+ Created blog visible in real-time (subscription update)
+
+**CRUD Read:**
+ Blog list shows existing posts
+ Blog detail shows title, content, author, date
+ List pagination: load more loads next page
+ Search filters results by query
+
+**CRUD Update:**
+ Edit form shows current values pre-filled
+ Auto-save triggers after edit (debounced)
+ Auto-save persists after reload
+ Toggle publish status
+ Conflict detection: concurrent edit shows warning
+
+**CRUD Delete:**
+ Delete with confirmation dialog
+ Cancel delete keeps post
+ Optimistic delete removes card immediately
+ Deleted post gone from list after confirm
+
+**File Upload:**
+ Upload cover image via file picker
+ Image compression (large image resized)
+ Replace existing cover image
+ Remove cover image
+
+**Profile:**
+ View profile (displayName, bio, avatar, theme)
+ Update profile fields
+ Upload/replace avatar image
 
 ### Phase 3: Chat App (AI + Public/Private)
 
-- [ ] **D3.1** Scaffold chat desktop app
-- [ ] **D3.2** Chat list: subscribe chat:list, create/delete
-- [ ] **D3.3** Message view: subscribe message:list, send + AI action
-- [ ] **D3.4** Navigation (NavigationSplitView) + testing
+ [ ] **D3.1** Scaffold chat desktop app
+ [ ] **D3.2** Chat list: subscribe chat:list, create/delete
+ [ ] **D3.3** Message view: subscribe message:list, send + AI action
+ [ ] **D3.4** Navigation (NavigationSplitView)
+
+#### D3.T: Chat Tests
+
+ Create new chat → appears in list
+ Delete chat → removed from list
+ Send text message → appears in message view
+ Messages load in chronological order
+ AI response received after sending message
+ Real-time: new message from another client appears without refresh
+ Chat list shows title and last activity
+ Empty chat shows appropriate state
 
 ### Phase 4: Org App (Multi-Tenancy + Full Features)
 
-- [ ] **D4.1** Scaffold org desktop app
-- [ ] **D4.2** Onboarding: 4-step form (profile/org/appearance/preferences)
-- [ ] **D4.3** Org switcher + home (NavigationSplitView sidebar)
-- [ ] **D4.4** Projects + tasks: subscribe, create/toggle/delete
-- [ ] **D4.5** Wiki: soft delete/restore, auto-save, conflict detection
-- [ ] **D4.6** Members: invite, revoke, set admin, remove
-- [ ] **D4.7** Settings: edit org, leave/delete, transfer ownership
-- [ ] **D4.8** Navigation + testing
+ [ ] **D4.1** Scaffold org desktop app
+ [ ] **D4.2** Onboarding: 4-step form (profile/org/appearance/preferences)
+ [ ] **D4.3** Org switcher + home (NavigationSplitView sidebar)
+ [ ] **D4.4** Projects + tasks: subscribe, create/toggle/delete
+ [ ] **D4.5** Wiki: soft delete/restore, auto-save, conflict detection
+ [ ] **D4.6** Members: invite, revoke, set admin, remove
+ [ ] **D4.7** Settings: edit org, leave/delete, transfer ownership
+
+#### D4.T: Org Tests
+
+**Onboarding:**
+ Complete 4-step onboarding (profile → org → appearance → preferences)
+ Step validation: can't advance with empty required fields
+ Step navigation: back button returns to previous step
+
+**Org Management:**
+ Create org with name + slug
+ Switch between orgs via switcher
+ Org home shows correct org data
+
+**Projects:**
+ Create project → appears in list
+ Delete project → removed + cascades delete tasks
+ Project list subscription updates in real-time
+
+**Tasks:**
+ Create task under project
+ Toggle task completion
+ Delete task
+ Tasks scoped to correct project
+
+**Wiki:**
+ Create wiki page with title + slug + content
+ Edit wiki: auto-save with debounce
+ Soft delete wiki → still in deleted list
+ Restore deleted wiki
+ Conflict detection on concurrent edit
+
+**Members:**
+ Invite member by email
+ Revoke pending invite
+ Set member as admin
+ Remove member from org
+ Member list shows roles correctly
+
+**Settings:**
+ Edit org name/slug
+ Leave org (non-owner)
+ Delete org (owner only)
+ Transfer ownership
 
 ### Phase 5: CI Integration
 
-- [ ] **D5.1** Add swift-core + desktop path filters to ci.yml changes job
-- [ ] **D5.2** Add build-desktop + test-desktop jobs
-- [ ] **D5.3** Update swift path filter to include swift-core (triggers mobile rebuild too)
-- [ ] **D5.4** Add package.json scripts: dev:desktop, build:desktop, test:desktop, clean:desktop
-- [ ] **D5.5** Verify all CI jobs pass
+ [ ] **D5.1** Add swift-core + desktop path filters to ci.yml changes job
+ [ ] **D5.2** Add build-desktop + test-desktop jobs
+ [ ] **D5.3** Update swift path filter to include swift-core (triggers mobile rebuild too)
+ [ ] **D5.4** Add package.json scripts: dev:desktop, build:desktop, test:desktop, clean:desktop
+ [ ] **D5.5** Verify all CI jobs pass (including test-desktop running all XCTest suites)
 
 ---
 
