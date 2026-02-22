@@ -54,7 +54,7 @@ final class ListViewModel: SwiftCrossUI.ObservableObject {
 }
 
 struct ListView: View {
-    @State var viewModel = ListViewModel()
+    @State private var viewModel = ListViewModel()
     var path: Binding<NavigationPath>
 
     var body: some View {

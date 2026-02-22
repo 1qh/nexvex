@@ -46,7 +46,10 @@ final class SearchViewModel: SwiftCrossUI.ObservableObject {
     @MainActor
     private func loadPosters(_ items: [SearchResult]) {
         for item in items {
-            guard let poster = item.poster_path else { continue }
+            guard let poster = item.poster_path else {
+                continue
+            }
+
             if let cached = ImageCache.shared.localURL(for: poster, size: "w185") {
                 posterURLs[item.id] = cached
                 continue

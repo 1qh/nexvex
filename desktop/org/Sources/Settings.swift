@@ -9,10 +9,10 @@ struct SettingsView: View {
     let role: String
     var onSwitchOrg: () -> Void
     var onSignOut: () -> Void
-    @State var editedName = ""
-    @State var editedSlug = ""
-    @State var isSaving = false
-    @State var errorMessage: String?
+    @State private var editedName = ""
+    @State private var editedSlug = ""
+    @State private var isSaving = false
+    @State private var errorMessage: String?
 
     var body: some View {
         VStack {

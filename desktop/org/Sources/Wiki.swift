@@ -90,10 +90,10 @@ struct WikiListView: View {
     let orgID: String
     let role: String
     var path: Binding<NavigationPath>
-    @State var viewModel = WikiListViewModel()
-    @State var showCreateForm = false
-    @State var newTitle = ""
-    @State var newSlug = ""
+    @State private var viewModel = WikiListViewModel()
+    @State private var showCreateForm = false
+    @State private var newTitle = ""
+    @State private var newSlug = ""
 
     var body: some View {
         VStack {
@@ -229,7 +229,7 @@ struct WikiEditView: View {
     let orgID: String
     let wikiID: String
     let role: String
-    @State var viewModel = WikiEditViewModel()
+    @State private var viewModel = WikiEditViewModel()
 
     var body: some View {
         VStack {

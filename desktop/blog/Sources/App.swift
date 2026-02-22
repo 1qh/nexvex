@@ -9,9 +9,9 @@ let fileClient = FileClient(client: client)
 
 @main
 struct BlogApp: App {
-    @State var path = NavigationPath()
-    @State var isAuthenticated = false
-    @State var showCreateForm = false
+    @State private var path = NavigationPath()
+    @State private var isAuthenticated = false
+    @State private var showCreateForm = false
 
     var body: some Scene {
         WindowGroup("Blog") {

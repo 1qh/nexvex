@@ -54,7 +54,7 @@ final class ProfileViewModel: SwiftCrossUI.ObservableObject {
 }
 
 struct ProfileView: View {
-    @State var viewModel = ProfileViewModel()
+    @State private var viewModel = ProfileViewModel()
 
     var body: some View {
         VStack {

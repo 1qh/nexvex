@@ -15,11 +15,11 @@ enum OrgSection: String {
 
 @main
 struct OrgApp: App {
-    @State var isAuthenticated = false
-    @State var activeOrgID: String?
-    @State var activeOrgName = ""
-    @State var activeRole = ""
-    @State var showOnboarding = false
+    @State private var isAuthenticated = false
+    @State private var activeOrgID: String?
+    @State private var activeOrgName = ""
+    @State private var activeRole = ""
+    @State private var showOnboarding = false
 
     var body: some Scene {
         WindowGroup("Org") {
@@ -66,17 +66,17 @@ struct OrgApp: App {
             }
             .padding(10)
         }
-        .defaultSize(width: 1000, height: 750)
+        .defaultSize(width: 1_000, height: 750)
     }
 }
 
 struct AuthView: View {
     var onAuth: () -> Void
-    @State var email = ""
-    @State var password = ""
-    @State var isSignUp = false
-    @State var isLoading = false
-    @State var errorMessage: String?
+    @State private var email = ""
+    @State private var password = ""
+    @State private var isSignUp = false
+    @State private var isLoading = false
+    @State private var errorMessage: String?
 
     var body: some View {
         VStack {
@@ -135,12 +135,12 @@ struct SwitcherView: View {
     var onSelectOrg: (String, String, String) -> Void
     var onSignOut: () -> Void
     var onShowOnboarding: () -> Void
-    @State var orgs = [OrgWithRole]()
-    @State var isLoading = true
-    @State var errorMessage: String?
-    @State var showCreateForm = false
-    @State var newOrgName = ""
-    @State var newOrgSlug = ""
+    @State private var orgs = [OrgWithRole]()
+    @State private var isLoading = true
+    @State private var errorMessage: String?
+    @State private var showCreateForm = false
+    @State private var newOrgName = ""
+    @State private var newOrgSlug = ""
 
     var body: some View {
         VStack {
@@ -214,7 +214,10 @@ struct SwitcherView: View {
     private func createOrg() async {
         let name = newOrgName.trimmingCharacters(in: .whitespacesAndNewlines)
         let slug = newOrgSlug.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !name.isEmpty, !slug.isEmpty else { return }
+        guard !name.isEmpty, !slug.isEmpty else {
+            return
+        }
+
         do {
             try await client.mutation("org:create", args: [
                 "data": ["name": name, "slug": slug] as [String: Any],
@@ -231,15 +234,15 @@ struct SwitcherView: View {
 
 struct OnboardingView: View {
     var onComplete: () -> Void
-    @State var step = 0
-    @State var displayName = ""
-    @State var bio = ""
-    @State var orgName = ""
-    @State var orgSlug = ""
-    @State var theme = "system"
-    @State var notifications = true
-    @State var isSubmitting = false
-    @State var errorMessage: String?
+    @State private var step = 0
+    @State private var displayName = ""
+    @State private var bio = ""
+    @State private var orgName = ""
+    @State private var orgSlug = ""
+    @State private var theme = "system"
+    @State private var notifications = true
+    @State private var isSubmitting = false
+    @State private var errorMessage: String?
 
     private let steps = ["Profile", "Organization", "Appearance", "Preferences"]
 
@@ -254,13 +257,17 @@ struct OnboardingView: View {
             case 0:
                 TextField("Display Name", text: $displayName)
                 TextField("Bio", text: $bio)
+
             case 1:
                 TextField("Organization Name", text: $orgName)
                 TextField("URL Slug", text: $orgSlug)
+
             case 2:
                 TextField("Theme (light/dark/system)", text: $theme)
+
             case 3:
                 Toggle("Enable Notifications", isOn: $notifications)
+
             default:
                 Text("")
             }
@@ -320,8 +327,8 @@ struct HomeView: View {
     let role: String
     var onSwitchOrg: () -> Void
     var onSignOut: () -> Void
-    @State var section = OrgSection.projects
-    @State var path = NavigationPath()
+    @State private var section = OrgSection.projects
+    @State private var path = NavigationPath()
 
     var body: some View {
         VStack {
@@ -344,6 +351,7 @@ struct HomeView: View {
                 .navigationDestination(for: String.self) { projectID in
                     TasksView(orgID: orgID, projectID: projectID, role: role)
                 }
+
             case .wiki:
                 NavigationStack(path: $path) {
                     WikiListView(orgID: orgID, role: role, path: $path)
@@ -351,8 +359,10 @@ struct HomeView: View {
                 .navigationDestination(for: String.self) { wikiID in
                     WikiEditView(orgID: orgID, wikiID: wikiID, role: role)
                 }
+
             case .members:
                 MembersView(orgID: orgID, role: role)
+
             case .settings:
                 SettingsView(orgID: orgID, orgName: orgName, role: role, onSwitchOrg: onSwitchOrg, onSignOut: onSignOut)
             }

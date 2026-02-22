@@ -35,7 +35,10 @@ final class FormViewModel: SwiftCrossUI.ObservableObject {
 
     @MainActor
     func save(onDone: @escaping () -> Void) async {
-        guard isValid else { return }
+        guard isValid else {
+            return
+        }
+
         isSaving = true
         errorMessage = nil
 
@@ -71,7 +74,7 @@ final class FormViewModel: SwiftCrossUI.ObservableObject {
 
 struct FormView: View {
     let onDone: () -> Void
-    @State var viewModel: FormViewModel
+    @State private var viewModel: FormViewModel
 
     var body: some View {
         VStack {

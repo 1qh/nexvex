@@ -29,7 +29,10 @@ final class MessageViewModel: SwiftCrossUI.ObservableObject {
     @MainActor
     func sendMessage(chatID: String) async {
         let text = messageText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { return }
+        guard !text.isEmpty else {
+            return
+        }
+
         messageText = ""
         errorMessage = nil
 
@@ -55,7 +58,7 @@ final class MessageViewModel: SwiftCrossUI.ObservableObject {
 struct MessageView: View {
     let chatID: String
     var path: Binding<NavigationPath>
-    @State var viewModel = MessageViewModel()
+    @State private var viewModel = MessageViewModel()
 
     var body: some View {
         VStack {

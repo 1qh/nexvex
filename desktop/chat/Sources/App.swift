@@ -8,8 +8,8 @@ let auth = AuthClient(convexURL: convexBaseURL)
 
 @main
 struct ChatApp: App {
-    @State var path = NavigationPath()
-    @State var isAuthenticated = false
+    @State private var path = NavigationPath()
+    @State private var isAuthenticated = false
 
     var body: some Scene {
         WindowGroup("Chat") {

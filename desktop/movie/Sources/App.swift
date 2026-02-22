@@ -62,6 +62,7 @@ final class ImageCache: @unchecked Sendable {
             guard let url = URL(string: "https://image.tmdb.org/t/p/\(size)\(remotePath)") else {
                 return nil
             }
+
             do {
                 let (data, _) = try await session.data(from: url)
                 try data.write(to: local)

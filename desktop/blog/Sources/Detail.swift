@@ -23,7 +23,10 @@ final class BlogDetailViewModel: SwiftCrossUI.ObservableObject {
 
     @MainActor
     func deleteBlog(path: Binding<NavigationPath>) async {
-        guard let blog else { return }
+        guard let blog else {
+            return
+        }
+
         do {
             try await client.mutation("blog:rm", args: ["id": blog._id])
             path.wrappedValue.removeLast()
@@ -36,8 +39,8 @@ final class BlogDetailViewModel: SwiftCrossUI.ObservableObject {
 struct DetailView: View {
     let blogID: String
     var path: Binding<NavigationPath>
-    @State var viewModel = BlogDetailViewModel()
-    @State var showEdit = false
+    @State private var viewModel = BlogDetailViewModel()
+    @State private var showEdit = false
 
     var body: some View {
         VStack {

@@ -4,11 +4,11 @@ import SwiftCrossUI
 
 struct AuthView: View {
     var onAuth: () -> Void
-    @State var email = ""
-    @State var password = ""
-    @State var isSignUp = false
-    @State var isLoading = false
-    @State var errorMessage: String?
+    @State private var email = ""
+    @State private var password = ""
+    @State private var isSignUp = false
+    @State private var isLoading = false
+    @State private var errorMessage: String?
 
     var body: some View {
         VStack {

@@ -59,10 +59,10 @@ struct ProjectsView: View {
     let orgID: String
     let role: String
     var path: Binding<NavigationPath>
-    @State var viewModel = ProjectsViewModel()
-    @State var showCreateForm = false
-    @State var newName = ""
-    @State var newDesc = ""
+    @State private var viewModel = ProjectsViewModel()
+    @State private var showCreateForm = false
+    @State private var newName = ""
+    @State private var newDesc = ""
 
     var body: some View {
         VStack {
@@ -193,8 +193,8 @@ struct TasksView: View {
     let orgID: String
     let projectID: String
     let role: String
-    @State var viewModel = TasksViewModel()
-    @State var newTaskTitle = ""
+    @State private var viewModel = TasksViewModel()
+    @State private var newTaskTitle = ""
 
     var body: some View {
         VStack {
@@ -232,7 +232,10 @@ struct TasksView: View {
                 TextField("New task...", text: $newTaskTitle)
                 Button("Add") {
                     let title = newTaskTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-                    guard !title.isEmpty else { return }
+                    guard !title.isEmpty else {
+                        return
+                    }
+
                     Task {
                         await viewModel.createTask(orgID: orgID, projectID: projectID, title: title)
                         newTaskTitle = ""
