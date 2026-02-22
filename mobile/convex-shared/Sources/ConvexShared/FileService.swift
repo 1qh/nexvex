@@ -51,34 +51,6 @@ public final class FileService: @unchecked Sendable {
         #endif
     }
 
-    private func postFile(data: Data, contentType: String, uploadURL: String) async throws -> String {
-        guard let url = URL(string: uploadURL) else {
-            throw ConvexError.serverError("Invalid upload URL")
-        }
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue(contentType, forHTTPHeaderField: "Content-Type")
-        request.httpBody = data
-
-        let (responseData, response) = try await URLSession.shared.data(for: request)
-
-        #if !SKIP
-        guard let httpResponse = response as? HTTPURLResponse,
-              httpResponse.statusCode == 200 else {
-            throw ConvexError.serverError("File upload failed")
-        }
-
-        #endif
-
-        guard let json = try JSONSerialization.jsonObject(with: responseData) as? [String: Any],
-              let storageID = json["storageId"] as? String else {
-            throw ConvexError.decodingError("No storageId in upload response")
-        }
-
-        return storageID
-    }
-
     private func compressImage(url: URL, maxSize: Int, quality: Double) throws -> Data {
         #if !SKIP
         #if canImport(UIKit)
@@ -132,35 +104,5 @@ public final class FileService: @unchecked Sendable {
         scaled.compress(Bitmap.CompressFormat.JPEG, Int(quality * 100.0), outputStream)
         return Data(platformValue: outputStream.toByteArray())
         #endif
-    }
-
-    private func guessContentType(for url: URL) -> String {
-        let ext = url.pathExtension.lowercased()
-        switch ext {
-        case "jpeg",
-             "jpg":
-            return "image/jpeg"
-
-        case "png":
-            return "image/png"
-
-        case "gif":
-            return "image/gif"
-
-        case "webp":
-            return "image/webp"
-
-        case "pdf":
-            return "application/pdf"
-
-        case "mp4":
-            return "video/mp4"
-
-        case "mov":
-            return "video/quicktime"
-
-        default:
-            return "application/octet-stream"
-        }
     }
 }

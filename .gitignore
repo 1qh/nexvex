@@ -35,6 +35,7 @@
 .next/
 .nitro/
 .omc
+.sisyphus/
 .output/
 .pnp
 .pnp.js
