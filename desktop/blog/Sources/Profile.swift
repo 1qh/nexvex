@@ -3,7 +3,7 @@ import DesktopShared
 import Foundation
 import SwiftCrossUI
 
-final class ProfileViewModel: SwiftCrossUI.ObservableObject {
+internal final class ProfileViewModel: SwiftCrossUI.ObservableObject {
     @SwiftCrossUI.Published var displayName = ""
     @SwiftCrossUI.Published var bio = ""
     @SwiftCrossUI.Published var theme = "system"
@@ -53,7 +53,7 @@ final class ProfileViewModel: SwiftCrossUI.ObservableObject {
     }
 }
 
-struct ProfileView: View {
+internal struct ProfileView: View {
     @State private var viewModel = ProfileViewModel()
 
     var body: some View {

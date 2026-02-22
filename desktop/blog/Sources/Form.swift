@@ -3,12 +3,12 @@ import DesktopShared
 import Foundation
 import SwiftCrossUI
 
-enum FormMode {
+internal enum FormMode {
     case create
     case edit(Blog)
 }
 
-final class FormViewModel: SwiftCrossUI.ObservableObject {
+internal final class FormViewModel: SwiftCrossUI.ObservableObject {
     @SwiftCrossUI.Published var title = ""
     @SwiftCrossUI.Published var content = ""
     @SwiftCrossUI.Published var category = "tech"
@@ -34,7 +34,7 @@ final class FormViewModel: SwiftCrossUI.ObservableObject {
     }
 
     @MainActor
-    func save(onDone: @escaping () -> Void) async {
+    func save(onDone: () -> Void) async {
         guard isValid else {
             return
         }
@@ -72,7 +72,7 @@ final class FormViewModel: SwiftCrossUI.ObservableObject {
     }
 }
 
-struct FormView: View {
+internal struct FormView: View {
     let onDone: () -> Void
     @State private var viewModel: FormViewModel
 
@@ -108,6 +108,7 @@ struct FormView: View {
         }
     }
 
+    // swiftlint:disable:next type_contents_order
     init(mode: FormMode, onDone: @escaping () -> Void) {
         self.onDone = onDone
         _viewModel = State(wrappedValue: FormViewModel(mode: mode))

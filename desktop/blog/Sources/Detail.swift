@@ -3,7 +3,7 @@ import DesktopShared
 import Foundation
 import SwiftCrossUI
 
-final class BlogDetailViewModel: SwiftCrossUI.ObservableObject {
+internal final class BlogDetailViewModel: SwiftCrossUI.ObservableObject {
     @SwiftCrossUI.Published var blog: Blog?
     @SwiftCrossUI.Published var isLoading = true
     @SwiftCrossUI.Published var errorMessage: String?
@@ -36,7 +36,7 @@ final class BlogDetailViewModel: SwiftCrossUI.ObservableObject {
     }
 }
 
-struct DetailView: View {
+internal struct DetailView: View {
     let blogID: String
     var path: Binding<NavigationPath>
     @State private var viewModel = BlogDetailViewModel()

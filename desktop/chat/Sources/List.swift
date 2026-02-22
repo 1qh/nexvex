@@ -3,7 +3,7 @@ import DesktopShared
 import Foundation
 import SwiftCrossUI
 
-final class ListViewModel: SwiftCrossUI.ObservableObject {
+internal final class ListViewModel: SwiftCrossUI.ObservableObject {
     @SwiftCrossUI.Published var chats = [Chat]()
     @SwiftCrossUI.Published var isLoading = false
     @SwiftCrossUI.Published var errorMessage: String?
@@ -51,7 +51,7 @@ final class ListViewModel: SwiftCrossUI.ObservableObject {
     }
 }
 
-struct ListView: View {
+internal struct ListView: View {
     @State private var viewModel = ListViewModel()
     var path: Binding<NavigationPath>
 

@@ -15,6 +15,7 @@ public final class ConvexSubscription<T: Decodable & Sendable>: @unchecked Senda
     private var reconnectDelay: TimeInterval = 1.0
     private var pingTask: Task<Void, Never>?
 
+    @preconcurrency
     public init(
         deploymentURL: String,
         name: String,

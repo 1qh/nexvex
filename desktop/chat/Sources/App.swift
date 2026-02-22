@@ -3,11 +3,11 @@ import DefaultBackend
 import DesktopShared
 import SwiftCrossUI
 
-let client = ConvexClient(deploymentURL: convexBaseURL)
-let auth = AuthClient(convexURL: convexBaseURL)
+internal let client = ConvexClient(deploymentURL: convexBaseURL)
+internal let auth = AuthClient(convexURL: convexBaseURL)
 
 @main
-struct ChatApp: App {
+internal struct ChatApp: App {
     @State private var path = NavigationPath()
     @State private var isAuthenticated = false
 
@@ -34,10 +34,10 @@ struct ChatApp: App {
                         MessageView(chatID: chatID, path: $path)
                     }
                 } else {
-                    AuthView(onAuth: {
+                    AuthView {
                         isAuthenticated = true
                         client.setAuth(token: auth.token)
-                    })
+                    }
                 }
             }
             .padding(10)

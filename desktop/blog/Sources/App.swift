@@ -3,12 +3,12 @@ import DefaultBackend
 import DesktopShared
 import SwiftCrossUI
 
-let client = ConvexClient(deploymentURL: convexBaseURL)
-let auth = AuthClient(convexURL: convexBaseURL)
-let fileClient = FileClient(client: client)
+internal let client = ConvexClient(deploymentURL: convexBaseURL)
+internal let auth = AuthClient(convexURL: convexBaseURL)
+internal let fileClient = FileClient(client: client)
 
 @main
-struct BlogApp: App {
+internal struct BlogApp: App {
     @State private var path = NavigationPath()
     @State private var isAuthenticated = false
     @State private var showCreateForm = false
@@ -55,10 +55,10 @@ struct BlogApp: App {
                         }
                     }
                 } else {
-                    AuthView(onAuth: {
+                    AuthView {
                         isAuthenticated = true
                         client.setAuth(token: auth.token)
-                    })
+                    }
                 }
             }
             .padding(10)
@@ -67,6 +67,6 @@ struct BlogApp: App {
     }
 }
 
-enum BlogRoute: Codable {
+internal enum BlogRoute: Codable {
     case profile
 }

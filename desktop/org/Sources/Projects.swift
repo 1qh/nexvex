@@ -3,7 +3,7 @@ import DesktopShared
 import Foundation
 import SwiftCrossUI
 
-final class ProjectsViewModel: SwiftCrossUI.ObservableObject {
+internal final class ProjectsViewModel: SwiftCrossUI.ObservableObject {
     @SwiftCrossUI.Published var projects = [Project]()
     @SwiftCrossUI.Published var isLoading = true
     @SwiftCrossUI.Published var errorMessage: String?
@@ -55,7 +55,7 @@ final class ProjectsViewModel: SwiftCrossUI.ObservableObject {
     }
 }
 
-struct ProjectsView: View {
+internal struct ProjectsView: View {
     let orgID: String
     let role: String
     var path: Binding<NavigationPath>
@@ -127,7 +127,7 @@ struct ProjectsView: View {
     }
 }
 
-final class TasksViewModel: SwiftCrossUI.ObservableObject {
+internal final class TasksViewModel: SwiftCrossUI.ObservableObject {
     @SwiftCrossUI.Published var tasks = [TaskItem]()
     @SwiftCrossUI.Published var isLoading = true
     @SwiftCrossUI.Published var errorMessage: String?
@@ -189,7 +189,7 @@ final class TasksViewModel: SwiftCrossUI.ObservableObject {
     }
 }
 
-struct TasksView: View {
+internal struct TasksView: View {
     let orgID: String
     let projectID: String
     let role: String

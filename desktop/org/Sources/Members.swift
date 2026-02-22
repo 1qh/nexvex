@@ -3,7 +3,7 @@ import DesktopShared
 import Foundation
 import SwiftCrossUI
 
-final class MembersViewModel: SwiftCrossUI.ObservableObject {
+internal final class MembersViewModel: SwiftCrossUI.ObservableObject {
     @SwiftCrossUI.Published var members = [OrgMemberEntry]()
     @SwiftCrossUI.Published var invites = [OrgInvite]()
     @SwiftCrossUI.Published var isLoading = true
@@ -85,7 +85,7 @@ final class MembersViewModel: SwiftCrossUI.ObservableObject {
     }
 }
 
-struct MembersView: View {
+internal struct MembersView: View {
     let orgID: String
     let role: String
     @State private var viewModel = MembersViewModel()

@@ -2,7 +2,7 @@ import DesktopShared
 import Foundation
 import SwiftCrossUI
 
-struct AuthView: View {
+internal struct AuthView: View {
     var onAuth: () -> Void
     @State private var email = ""
     @State private var password = ""
@@ -29,7 +29,7 @@ struct AuthView: View {
                 }
 
                 Button(isSignUp ? "Have account? Sign In" : "Need account? Sign Up") {
-                    isSignUp = !isSignUp
+                    isSignUp.toggle()
                     errorMessage = nil
                 }
             }

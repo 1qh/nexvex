@@ -4,9 +4,9 @@ import DesktopShared
 import Foundation
 import SwiftCrossUI
 
-let client = ConvexClient(deploymentURL: convexBaseURL)
+internal let client = ConvexClient(deploymentURL: convexBaseURL)
 
-final class ImageCache: @unchecked Sendable {
+internal final class ImageCache: @unchecked Sendable {
     static let shared = ImageCache()
     private let cacheDir: URL
     private let session = URLSession.shared
@@ -79,7 +79,7 @@ final class ImageCache: @unchecked Sendable {
 }
 
 @main
-struct MovieApp: App {
+internal struct MovieApp: App {
     @State private var path = NavigationPath()
 
     var body: some Scene {

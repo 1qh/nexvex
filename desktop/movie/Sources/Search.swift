@@ -3,7 +3,7 @@ import DesktopShared
 import Foundation
 import SwiftCrossUI
 
-final class SearchViewModel: SwiftCrossUI.ObservableObject {
+internal final class SearchViewModel: SwiftCrossUI.ObservableObject {
     @SwiftCrossUI.Published var query = ""
     @SwiftCrossUI.Published var results = [SearchResult]()
     @SwiftCrossUI.Published var isLoading = false
@@ -63,7 +63,7 @@ final class SearchViewModel: SwiftCrossUI.ObservableObject {
     }
 }
 
-struct SearchView: View {
+internal struct SearchView: View {
     @State private var viewModel = SearchViewModel()
     var path: Binding<NavigationPath>
 
@@ -92,6 +92,7 @@ struct SearchView: View {
                     ForEach(viewModel.results) { result in
                         HStack {
                             if let posterURL = viewModel.posterURLs[result.id] {
+                                // swiftlint:disable:next accessibility_label_for_image
                                 Image(posterURL)
                                     .resizable()
                                     .frame(width: 60, height: 90)

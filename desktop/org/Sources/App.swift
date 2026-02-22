@@ -3,18 +3,18 @@ import DefaultBackend
 import DesktopShared
 import SwiftCrossUI
 
-let client = ConvexClient(deploymentURL: convexBaseURL)
-let auth = AuthClient(convexURL: convexBaseURL)
+internal let client = ConvexClient(deploymentURL: convexBaseURL)
+internal let auth = AuthClient(convexURL: convexBaseURL)
 
-enum OrgSection: String {
-    case projects
-    case wiki
+internal enum OrgSection: String {
     case members
+    case projects
     case settings
+    case wiki
 }
 
 @main
-struct OrgApp: App {
+internal struct OrgApp: App {
     @State private var isAuthenticated = false
     @State private var activeOrgID: String?
     @State private var activeOrgName = ""
@@ -26,9 +26,9 @@ struct OrgApp: App {
             VStack {
                 if isAuthenticated {
                     if showOnboarding {
-                        OnboardingView(onComplete: {
+                        OnboardingView {
                             showOnboarding = false
-                        })
+                        }
                     } else if let orgID = activeOrgID {
                         HomeView(
                             orgID: orgID,
@@ -58,10 +58,10 @@ struct OrgApp: App {
                         )
                     }
                 } else {
-                    AuthView(onAuth: {
+                    AuthView {
                         isAuthenticated = true
                         client.setAuth(token: auth.token)
-                    })
+                    }
                 }
             }
             .padding(10)
@@ -70,7 +70,7 @@ struct OrgApp: App {
     }
 }
 
-struct AuthView: View {
+internal struct AuthView: View {
     var onAuth: () -> Void
     @State private var email = ""
     @State private var password = ""
@@ -96,7 +96,7 @@ struct AuthView: View {
                     Task { await submit() }
                 }
                 Button(isSignUp ? "Have account? Sign In" : "Need account? Sign Up") {
-                    isSignUp = !isSignUp
+                    isSignUp.toggle()
                     errorMessage = nil
                 }
             }
@@ -131,7 +131,7 @@ struct AuthView: View {
     }
 }
 
-struct SwitcherView: View {
+internal struct SwitcherView: View {
     var onSelectOrg: (String, String, String) -> Void
     var onSignOut: () -> Void
     var onShowOnboarding: () -> Void
@@ -232,7 +232,7 @@ struct SwitcherView: View {
     }
 }
 
-struct OnboardingView: View {
+internal struct OnboardingView: View {
     var onComplete: () -> Void
     @State private var step = 0
     @State private var displayName = ""
@@ -321,7 +321,7 @@ struct OnboardingView: View {
     }
 }
 
-struct HomeView: View {
+internal struct HomeView: View {
     let orgID: String
     let orgName: String
     let role: String

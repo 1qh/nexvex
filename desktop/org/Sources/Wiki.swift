@@ -3,7 +3,7 @@ import DesktopShared
 import Foundation
 import SwiftCrossUI
 
-final class WikiListViewModel: SwiftCrossUI.ObservableObject {
+internal final class WikiListViewModel: SwiftCrossUI.ObservableObject {
     @SwiftCrossUI.Published var wikis = [Wiki]()
     @SwiftCrossUI.Published var isLoading = true
     @SwiftCrossUI.Published var errorMessage: String?
@@ -86,7 +86,7 @@ final class WikiListViewModel: SwiftCrossUI.ObservableObject {
     }
 }
 
-struct WikiListView: View {
+internal struct WikiListView: View {
     let orgID: String
     let role: String
     var path: Binding<NavigationPath>
@@ -166,7 +166,7 @@ struct WikiListView: View {
     }
 }
 
-final class WikiEditViewModel: SwiftCrossUI.ObservableObject {
+internal final class WikiEditViewModel: SwiftCrossUI.ObservableObject {
     @SwiftCrossUI.Published var title = ""
     @SwiftCrossUI.Published var slug = ""
     @SwiftCrossUI.Published var content = ""
@@ -225,7 +225,7 @@ final class WikiEditViewModel: SwiftCrossUI.ObservableObject {
     }
 }
 
-struct WikiEditView: View {
+internal struct WikiEditView: View {
     let orgID: String
     let wikiID: String
     let role: String

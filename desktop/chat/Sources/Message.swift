@@ -3,7 +3,7 @@ import DesktopShared
 import Foundation
 import SwiftCrossUI
 
-final class MessageViewModel: SwiftCrossUI.ObservableObject {
+internal final class MessageViewModel: SwiftCrossUI.ObservableObject {
     @SwiftCrossUI.Published var messages = [Message]()
     @SwiftCrossUI.Published var isLoading = true
     @SwiftCrossUI.Published var isAiLoading = false
@@ -55,7 +55,7 @@ final class MessageViewModel: SwiftCrossUI.ObservableObject {
     }
 }
 
-struct MessageView: View {
+internal struct MessageView: View {
     let chatID: String
     var path: Binding<NavigationPath>
     @State private var viewModel = MessageViewModel()

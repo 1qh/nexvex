@@ -3,7 +3,7 @@ import DesktopShared
 import Foundation
 import SwiftCrossUI
 
-struct SettingsView: View {
+internal struct SettingsView: View {
     let orgID: String
     let orgName: String
     let role: String

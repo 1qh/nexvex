@@ -3,7 +3,7 @@ import DesktopShared
 import Foundation
 import SwiftCrossUI
 
-final class DetailViewModel: SwiftCrossUI.ObservableObject {
+internal final class DetailViewModel: SwiftCrossUI.ObservableObject {
     @SwiftCrossUI.Published var movie: Movie?
     @SwiftCrossUI.Published var isLoading = false
     @SwiftCrossUI.Published var errorMessage: String?
@@ -31,7 +31,7 @@ final class DetailViewModel: SwiftCrossUI.ObservableObject {
     }
 }
 
-struct DetailView: View {
+internal struct DetailView: View {
     let tmdbID: Int
     var path: Binding<NavigationPath>
     @State private var viewModel = DetailViewModel()
@@ -63,7 +63,7 @@ struct DetailView: View {
     }
 }
 
-struct MovieDetail: View {
+internal struct MovieDetail: View {
     let movie: Movie
     let posterURL: URL?
 
@@ -71,6 +71,7 @@ struct MovieDetail: View {
         ScrollView {
             VStack {
                 if let url = posterURL {
+                    // swiftlint:disable:next accessibility_label_for_image
                     Image(url)
                         .resizable()
                         .frame(width: 200, height: 300)
