@@ -940,23 +940,27 @@ swift-core/                           <- Shared (see above)
 
 desktop/
   shared/                              <- Desktop-specific Convex client
-    Package.swift                       depends on swift-core + SwiftCrossUI
+    Package.swift                       depends on swift-core
     Sources/Shared/
       Client.swift                      HTTP queries/mutations/actions
       Subscription.swift                WebSocket real-time subscriptions
       Auth.swift                        ConvexCore.HTTP + macOS Keychain + browser OAuth
       File.swift                        ConvexCore.HTTP + NSImage compression
-    Tests/SharedTests/
+    Tests/SharedTests/                  Integration tests (XCTest + real Convex)
 
   blog/                                <- Blog desktop app
-    Package.swift                       depends on desktop/shared
+    Package.swift                       depends on desktop/shared + SwiftCrossUI
     Sources/Blog/
       App.swift                         @main, WindowGroup
       List.swift                        Blog list + search
       Detail.swift                      Blog detail view
       Form.swift                        Create/edit form
       Profile.swift                     User profile
-    Tests/BlogTests/
+    Tests/BlogTests/                    Unit tests
+    App.xcodeproj/                      Xcode project for XCUITest
+      xcshareddata/xcschemes/App.xcscheme
+    E2E/BlogE2E/                        XCUITest UI test bundle
+      BlogE2ETests.swift
 
   chat/
     Package.swift
@@ -965,6 +969,9 @@ desktop/
       List.swift
       Message.swift
     Tests/ChatTests/
+    App.xcodeproj/
+    E2E/ChatE2E/
+      ChatE2ETests.swift
 
   movie/
     Package.swift
@@ -973,6 +980,9 @@ desktop/
       Search.swift
       Detail.swift
     Tests/MovieTests/
+    App.xcodeproj/
+    E2E/MovieE2E/
+      MovieE2ETests.swift
 
   org/
     Package.swift
@@ -987,6 +997,42 @@ desktop/
       Members.swift
       Settings.swift
     Tests/OrgTests/
+    App.xcodeproj/
+    E2E/OrgE2E/
+      OrgE2ETests.swift
+```
+
+## E2E Testing: XCUITest
+
+Each desktop app has an `App.xcodeproj` with a UI test target (XCUITest bundle).
+XCUITest launches the app, interacts via accessibility, verifies UI state.
+
+**Requirements:**
+- All SwiftCrossUI views need `.accessibilityIdentifier()` for reliable element lookup
+- App.xcodeproj references SPM Package.swift sources (no code duplication)
+- E2E tests live in `E2E/{App}E2E/` directory, registered as UI test target in xcodeproj
+- Tests require running Convex dev server (`convex dev --once` before test run)
+
+**XCUITest pattern:**
+```swift
+import XCTest
+
+final class MovieE2ETests: XCTestCase {
+    let app = XCUIApplication()
+    override func setUp() { app.launch() }
+
+    func testSearchReturnsResults() {
+        app.textFields["search-input"].tap()
+        app.textFields["search-input"].typeText("Inception")
+        XCTAssertTrue(app.staticTexts["Inception"].waitForExistence(timeout: 10))
+    }
+}
+```
+
+**Run E2E:**
+```bash
+xcodebuild test -project desktop/movie/App.xcodeproj -scheme App -destination 'platform=macOS'
+xcodebuild test -project desktop/blog/App.xcodeproj -scheme App -destination 'platform=macOS'
 ```
 
 ## Compact Philosophy (Same as Mobile)
@@ -995,15 +1041,17 @@ desktop/
 - Consolidate per feature: view + state in one file
 - Folder name is the only differentiator
 - SPM target names stay unique: `Blog`, `Chat`, `Movie`, `Org`
+- `.xcodeproj` uses generic name `App.xcodeproj` (same as mobile)
 
 ## Build & Run
 
 ```bash
 swift build --package-path desktop/blog
 swift run --package-path desktop/blog Blog
-swift test --package-path swift-core
-swift test --package-path desktop/shared
-swift test --package-path desktop/blog
+swift test --package-path swift-core                          # unit tests
+swift test --package-path desktop/shared                      # integration tests
+xcodebuild test -project desktop/movie/App.xcodeproj \
+  -scheme App -destination 'platform=macOS'                   # E2E tests
 ```
 
 ## CI
@@ -1014,7 +1062,11 @@ Add `swift-core` + `desktop` path filters. swift-core changes trigger BOTH mobil
 |----|----|----|-----|
 | `build-desktop` | desktop or swift-core changed | `macos-latest` | changes |
 | `test-desktop` | same | `macos-latest` | build-desktop |
+| `e2e-desktop` | same | `macos-latest` | build-desktop |
 | (existing) `build-swift` | swift or swift-core changed | `macos-latest` | lint-swift |
+
+**test-desktop**: `swift test` on swift-core + desktop/shared (unit + integration)
+**e2e-desktop**: `xcodebuild test` on all 4 apps (XCUITest, matrix: blog/chat/movie/org)
 
 Desktop Swift files covered by existing `lint-swift` job (add `desktop/**` + `swift-core/**` to swift path filter).
 
@@ -1061,6 +1113,9 @@ Desktop Swift files covered by existing `lint-swift` job (add `desktop/**` + `sw
  [ ] **D1.2** Search: TextField + debounce, List results, NavigationLink to detail
  [ ] **D1.3** Detail: movie:load action, poster image via URLSession
  [ ] **D1.4** Navigation: search → detail → back to search
+ [ ] **D1.5** Create App.xcodeproj with UI test target + accessibility identifiers on all interactive views
+ [ ] **D1.6** Write XCUITest E2E tests (search → results → detail → back)
+ [ ] **D1.7** Verify `xcodebuild test` passes for movie E2E
 
 #### D1.T: Movie Tests
 
@@ -1083,6 +1138,9 @@ Desktop Swift files covered by existing `lint-swift` job (add `desktop/**` + `sw
  [ ] **D2.5** Create/edit form: fields, file picker, auto-save, conflict detection
  [ ] **D2.6** Profile: subscribe blogProfile:get, upsert
  [ ] **D2.7** Navigation (NavigationSplitView)
+ [ ] **D2.8** Create App.xcodeproj with UI test target + accessibility identifiers on all interactive views
+ [ ] **D2.9** Write XCUITest E2E tests (auth → CRUD → profile → file upload)
+ [ ] **D2.10** Verify `xcodebuild test` passes for blog E2E
 
 #### D2.T: Blog Tests
 
@@ -1135,6 +1193,9 @@ Desktop Swift files covered by existing `lint-swift` job (add `desktop/**` + `sw
  [ ] **D3.2** Chat list: subscribe chat:list, create/delete
  [ ] **D3.3** Message view: subscribe message:list, send + AI action
  [ ] **D3.4** Navigation (NavigationSplitView)
+ [ ] **D3.5** Create App.xcodeproj with UI test target + accessibility identifiers on all interactive views
+ [ ] **D3.6** Write XCUITest E2E tests (create chat → send message → AI response → delete)
+ [ ] **D3.7** Verify `xcodebuild test` passes for chat E2E
 
 #### D3.T: Chat Tests
 
@@ -1156,6 +1217,9 @@ Desktop Swift files covered by existing `lint-swift` job (add `desktop/**` + `sw
  [ ] **D4.5** Wiki: soft delete/restore, auto-save, conflict detection
  [ ] **D4.6** Members: invite, revoke, set admin, remove
  [ ] **D4.7** Settings: edit org, leave/delete, transfer ownership
+ [ ] **D4.8** Create App.xcodeproj with UI test target + accessibility identifiers on all interactive views
+ [ ] **D4.9** Write XCUITest E2E tests (onboarding → projects → tasks → wiki → members)
+ [ ] **D4.10** Verify `xcodebuild test` passes for org E2E
 
 #### D4.T: Org Tests
 
@@ -1207,6 +1271,8 @@ Desktop Swift files covered by existing `lint-swift` job (add `desktop/**` + `sw
  [ ] **D5.3** Update swift path filter to include swift-core (triggers mobile rebuild too)
  [ ] **D5.4** Add package.json scripts: dev:desktop, build:desktop, test:desktop, clean:desktop
  [ ] **D5.5** Verify all CI jobs pass (including test-desktop running all XCTest suites)
+ [ ] **D5.6** Add e2e-desktop CI job (xcodebuild test matrix for all 4 apps)
+ [ ] **D5.7** Verify all E2E tests pass in CI
 
 ---
 
@@ -1224,6 +1290,7 @@ Desktop Swift files covered by existing `lint-swift` job (add `desktop/**` + `sw
 - [ ] Auth (password + Google OAuth) works
 - [ ] File upload works
 - [ ] `swift test` passes for swift-core + desktop/shared + all 4 apps
+ [ ] XCUITest E2E passes for all 4 desktop apps
 - [ ] All CI jobs pass (including mobile rebuild triggered by swift-core changes)
 
 ## Success Criteria
@@ -1234,4 +1301,4 @@ Desktop Swift files covered by existing `lint-swift` job (add `desktop/**` + `sw
 - Zero code duplication: Models, Error, HTTP helpers shared via swift-core
 - Auth working (password + Google OAuth via system browser)
 - File upload working
-- Full CI: build + test + lint, path-filtered with swift-core triggering both tracks
+ Full CI: build + test + e2e + lint, path-filtered with swift-core triggering both tracks
