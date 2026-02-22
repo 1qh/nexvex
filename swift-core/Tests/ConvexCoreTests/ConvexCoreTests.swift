@@ -1,9 +1,11 @@
+@testable import ConvexCore
 import Foundation
 import Testing
-@testable import ConvexCore
 
-@Suite struct ModelsTests {
-    @Test func movieDecodesFromJSON() throws {
+@Suite
+struct ModelsTests {
+    @Test
+    func movieDecodesFromJSON() throws {
         let json = """
         {
             "tmdb_id": 27205,
@@ -19,12 +21,13 @@ import Testing
         """
         let movie = try JSONDecoder().decode(Movie.self, from: Data(json.utf8))
         #expect(movie.title == "Inception")
-        #expect(movie.tmdb_id == 27205)
+        #expect(movie.tmdb_id == 27_205)
         #expect(movie.id == "27205")
         #expect(movie.genres.count == 1)
     }
 
-    @Test func searchResultDecodesFromJSON() throws {
+    @Test
+    func searchResultDecodesFromJSON() throws {
         let json = """
         {
             "tmdb_id": 123,
@@ -40,7 +43,8 @@ import Testing
         #expect(result.id == 123)
     }
 
-    @Test func blogDecodesWithOptionalFields() throws {
+    @Test
+    func blogDecodesWithOptionalFields() throws {
         let json = """
         {
             "_id": "abc",
@@ -66,7 +70,8 @@ import Testing
         #expect(blog.tags?.count == 1)
     }
 
-    @Test func chatDecodesFromJSON() throws {
+    @Test
+    func chatDecodesFromJSON() throws {
         let json = """
         {
             "_id": "c1",
@@ -83,7 +88,8 @@ import Testing
         #expect(chat.isPublic == true)
     }
 
-    @Test func messageDecodesWithParts() throws {
+    @Test
+    func messageDecodesWithParts() throws {
         let json = """
         {
             "_id": "m1",
@@ -100,7 +106,8 @@ import Testing
         #expect(message.parts[0].type == .text)
     }
 
-    @Test func orgDecodesFromJSON() throws {
+    @Test
+    func orgDecodesFromJSON() throws {
         let json = """
         {
             "_id": "o1",
@@ -116,7 +123,8 @@ import Testing
         #expect(org.slug == "acme")
     }
 
-    @Test func paginatedResultDecodes() throws {
+    @Test
+    func paginatedResultDecodes() throws {
         let json = """
         {
             "page": [{"_id": "o1", "_creationTime": 0, "name": "Acme", "slug": "acme", "userID": "u1", "updatedAt": 0}],
@@ -130,7 +138,8 @@ import Testing
         #expect(result.isDone == false)
     }
 
-    @Test func taskItemDecodes() throws {
+    @Test
+    func taskItemDecodes() throws {
         let json = """
         {
             "_id": "t1",
@@ -151,7 +160,8 @@ import Testing
         #expect(task.completed == false)
     }
 
-    @Test func wikiDecodes() throws {
+    @Test
+    func wikiDecodes() throws {
         let json = """
         {
             "_id": "w1",
@@ -173,8 +183,10 @@ import Testing
     }
 }
 
-@Suite struct ErrorTests {
-    @Test func convexErrorCases() {
+@Suite
+struct ErrorTests {
+    @Test
+    func convexErrorCases() {
         let e1 = ConvexError.decodingError("bad json")
         let e2 = ConvexError.notInitialized
         let e3 = ConvexError.serverError("500")
@@ -183,27 +195,32 @@ import Testing
         #expect(String(describing: e3).contains("serverError"))
     }
 
-    @Test func urlConstantsAreLocalhost() {
+    @Test
+    func urlConstantsAreLocalhost() {
         #expect(convexBaseURL.contains("127.0.0.1"))
         #expect(convexSiteURL.contains("127.0.0.1"))
     }
 }
 
-@Suite struct HTTPTests {
-    @Test func extractOAuthCodeFromValidURL() throws {
-        let url = URL(string: "dev.lazyconvex://auth?code=abc123&state=xyz")!
+@Suite
+struct HTTPTests {
+    @Test
+    func extractOAuthCodeFromValidURL() throws {
+        let url = try #require(URL(string: "dev.lazyconvex://auth?code=abc123&state=xyz"))
         let code = try extractOAuthCode(from: url)
         #expect(code == "abc123")
     }
 
-    @Test func extractOAuthCodeThrowsWhenMissing() {
-        let url = URL(string: "dev.lazyconvex://auth?state=xyz")!
+    @Test
+    func extractOAuthCodeThrowsWhenMissing() throws {
+        let url = try #require(URL(string: "dev.lazyconvex://auth?state=xyz"))
         #expect(throws: ConvexError.self) {
             try extractOAuthCode(from: url)
         }
     }
 
-    @Test func guessContentTypeForImages() {
+    @Test
+    func guessContentTypeForImages() {
         #expect(guessContentType(for: URL(fileURLWithPath: "/photo.jpg")) == "image/jpeg")
         #expect(guessContentType(for: URL(fileURLWithPath: "/photo.jpeg")) == "image/jpeg")
         #expect(guessContentType(for: URL(fileURLWithPath: "/photo.png")) == "image/png")
@@ -211,24 +228,29 @@ import Testing
         #expect(guessContentType(for: URL(fileURLWithPath: "/photo.webp")) == "image/webp")
     }
 
-    @Test func guessContentTypeForDocuments() {
+    @Test
+    func guessContentTypeForDocuments() {
         #expect(guessContentType(for: URL(fileURLWithPath: "/doc.pdf")) == "application/pdf")
         #expect(guessContentType(for: URL(fileURLWithPath: "/video.mp4")) == "video/mp4")
         #expect(guessContentType(for: URL(fileURLWithPath: "/video.mov")) == "video/quicktime")
     }
 
-    @Test func guessContentTypeDefaultsToOctetStream() {
+    @Test
+    func guessContentTypeDefaultsToOctetStream() {
         #expect(guessContentType(for: URL(fileURLWithPath: "/file.xyz")) == "application/octet-stream")
     }
 }
 
-@Suite struct FormatTests {
-    @Test func formatTimestampReturnsNonEmpty() {
+@Suite
+struct FormatTests {
+    @Test
+    func formatTimestampReturnsNonEmpty() {
         let result = formatTimestamp(1_700_000_000_000)
         #expect(result.isEmpty == false)
     }
 
-    @Test func formatTimestampHandlesZero() {
+    @Test
+    func formatTimestampHandlesZero() {
         let result = formatTimestamp(0)
         #expect(result.isEmpty == false)
     }
