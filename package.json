@@ -13,6 +13,7 @@
     "clean:workspaces": "turbo run clean",
     "dev:blog": "turbo watch dev -F @a/blog -F @a/be",
     "dev:chat": "turbo watch dev -F @a/chat -F @a/be",
+    "dev:mobile": "f() { open mobile/$1/Project.xcworkspace; }; f",
     "dev:movie": "turbo watch dev -F @a/movie -F @a/be",
     "dev:org": "turbo watch dev -F @a/org -F @a/be",
     "fix": "bun format && bun lint:ts:fix && bun format && (O=$(turbo typecheck build --output-logs=errors-only 2>&1) || { echo \"$O\"; false; }) && bun format:swift && bun lint:swift",

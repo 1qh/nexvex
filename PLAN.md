@@ -823,3 +823,221 @@ After all apps are built:
 - Auth working (both email/password AND Google OAuth on both platforms)
 - File upload working (Blog covers, avatars)
 - Photo picker working (SkipKit) on both platforms
+
+---
+
+# LazyConvex Desktop: 4 Cross-Platform Desktop Apps
+
+## Goal
+
+Clone the 4 lazyconvex demo apps (Movie, Blog, Chat, Org) as native desktop apps using Swift and [SwiftCrossUI](https://github.com/moreSwift/swift-cross-ui). All apps connect to the same existing Convex backend. Target macOS (AppKitBackend) and Linux (GtkBackend).
+
+## Architecture
+
+### SwiftCrossUI (not SwiftUI)
+
+SwiftCrossUI is a SwiftUI-like framework for cross-platform desktop apps. It shares many API patterns with SwiftUI but is NOT SwiftUI. Code cannot be shared directly with the mobile (Skip/SwiftUI) apps.
+
+```
+import SwiftCrossUI          // NOT SwiftUI
+import DefaultBackend         // Auto-selects: AppKit (macOS), GTK (Linux), WinUI (Windows)
+```
+
+### Key API Differences from SwiftUI
+
+| SwiftUI (Mobile) | SwiftCrossUI (Desktop) | Notes |
+|----|----|----|
+| `import SwiftUI` | `import SwiftCrossUI` | Different framework |
+| `@Observable` | `@Observed` class | Uses `Observable` protocol, not macro |
+| `TabView` | NavigationSplitView sidebar | No TabView available |
+| `AsyncImage` | Custom image loading via URLSession + `Image` | No built-in async image |
+| `.sheet()` | NavigationStack push or custom overlay | No sheet modifier |
+| `.confirmationDialog()` | Custom dialog / alert pattern | Limited |
+| `.searchable()` | TextField + manual filtering | No searchable modifier |
+| `.swipeActions()` | Context menu / buttons | No swipe actions on desktop |
+| `.withMediaPicker()` (SkipKit) | File picker dialog (NSOpenPanel / GTK) | Platform-specific |
+
+### Available SwiftCrossUI Views
+
+**Layout**: HStack, VStack, ScrollView, Spacer, Divider, GeometryReader, Group
+**Navigation**: NavigationStack, NavigationLink, NavigationPath, NavigationSplitView
+**Controls**: Button, TextField, TextEditor, Toggle, Picker, Slider, Checkbox, DatePicker, Menu
+**Display**: Text, Image, ProgressView, List, ForEach, Table
+**State**: @State, @Binding, @Environment, @AppStorage, @Observed
+
+### Convex Client: Pure HTTP + WebSocket
+
+The mobile apps use ConvexMobile Swift SDK (iOS xcframework) and Convex Kotlin SDK (Android). Neither works on desktop. Desktop apps need a **pure Swift Convex client** using:
+
+- **HTTP API** for queries, mutations, and actions (`POST {CONVEX_URL}/api/query`, `/api/mutation`, `/api/action`)
+- **WebSocket** for real-time subscriptions (Convex sync protocol)
+- **Foundation URLSession** for all networking (available on all platforms via swift-corelibs-foundation)
+
+### Auth Strategy (Desktop)
+
+**Password auth**: Same HTTP POST to `{CONVEX_URL}/api/auth/signin` as mobile. Store token in:
+- macOS: Keychain (via Security framework)
+- Linux: File-based encrypted storage or libsecret
+
+**Google OAuth**: Open system browser -> Google auth -> redirect to `http://localhost:{port}/callback` -> local HTTP server captures JWT -> store token.
+
+### Project Structure
+
+```
+desktop/
+  shared/                       <- Shared Convex client + models
+    Package.swift
+    Sources/Shared/
+      ConvexClient.swift          HTTP queries/mutations/actions via URLSession
+      ConvexSubscription.swift    WebSocket real-time subscriptions
+      AuthClient.swift            Password + Google OAuth (system browser flow)
+      FileClient.swift            File upload via HTTP
+      Models.swift                Codable data models (copied from mobile ConvexShared)
+    Tests/SharedTests/
+
+  blog/                         <- Blog desktop app
+    Package.swift                depends on shared
+    Sources/Blog/
+      App.swift                  @main entry, WindowGroup
+      List.swift                 Blog list + search
+      Detail.swift               Blog detail view
+      Form.swift                 Create/edit form
+      Profile.swift              User profile
+    Tests/BlogTests/
+
+  chat/                         <- Chat desktop app
+    Package.swift
+    Sources/Chat/
+      App.swift
+      List.swift
+      Message.swift
+    Tests/ChatTests/
+
+  movie/                        <- Movie desktop app
+    Package.swift
+    Sources/Movie/
+      App.swift
+      Search.swift
+      Detail.swift
+    Tests/MovieTests/
+
+  org/                          <- Org desktop app
+    Package.swift
+    Sources/Org/
+      App.swift
+      Home.swift
+      Switcher.swift
+      Onboarding.swift
+      Projects.swift
+      Tasks.swift
+      Wiki.swift
+      Members.swift
+      Settings.swift
+    Tests/OrgTests/
+```
+
+### Compact Philosophy (Same as Mobile)
+
+- **No app-name prefixes**: generic file/class names (`App.swift`, `Detail.swift`)
+- **Consolidate per feature**: view + state in one file
+- **Folder name is the differentiator**: `blog/`, `chat/`, `movie/`, `org/`
+- **SPM targets stay unique**: `Blog`, `Chat`, `Movie`, `Org`
+
+### Build & Run
+
+```bash
+swift build --package-path desktop/blog
+swift run --package-path desktop/blog Blog
+swift test --package-path desktop/shared
+swift test --package-path desktop/blog
+```
+
+## CI
+
+Add `desktop` path filter group to `changes` job. New jobs:
+
+| Job | Runner | Depends On | What |
+|----|----|----|-----|
+| `build-desktop` | `macos-latest` | `changes` (if desktop=true) | `swift build` all 4 apps |
+| `test-desktop` | `build-desktop` | `build-desktop` | `swift test` shared + all 4 apps |
+
+Desktop Swift files covered by existing `lint-swift` job.
+
+## Tasks
+
+### Phase 0: Shared Infrastructure (Convex Client)
+
+- [ ] **D0.1** Scaffold desktop/shared SPM Package
+- [ ] **D0.2** ConvexClient: HTTP queries/mutations/actions via URLSession
+- [ ] **D0.3** ConvexSubscription: WebSocket real-time via URLSessionWebSocketTask
+- [ ] **D0.4** AuthClient: password + Google OAuth (system browser + local callback server)
+- [ ] **D0.5** FileClient: upload via HTTP (generateUploadUrl mutation + POST)
+- [ ] **D0.6** Models: copy Codable structs from mobile ConvexShared
+- [ ] **D0.7** Unit tests for shared package
+
+### Phase 1: Movie App (No Auth, 2 Screens)
+
+- [ ] **D1.1** Scaffold movie desktop app (SPM executable, depends on shared + SwiftCrossUI)
+- [ ] **D1.2** Search screen: TextField + debounce, List of results, NavigationLink to detail
+- [ ] **D1.3** Detail screen: movie:load action, poster image via URLSession
+- [ ] **D1.4** Navigation + testing
+
+### Phase 2: Blog App (Auth + CRUD + File Upload)
+
+- [ ] **D2.1** Scaffold blog desktop app
+- [ ] **D2.2** Auth view: sign in/up form, Google OAuth button
+- [ ] **D2.3** Blog list: subscribe blog:list, search, create button
+- [ ] **D2.4** Blog detail: subscribe blog:read, edit/delete if own
+- [ ] **D2.5** Create/edit form: TextField/TextEditor/Picker/Toggle, file picker, auto-save, conflict detection
+- [ ] **D2.6** Profile: subscribe blogProfile:get, upsert
+- [ ] **D2.7** Navigation (NavigationSplitView) + testing
+
+### Phase 3: Chat App (AI + Public/Private)
+
+- [ ] **D3.1** Scaffold chat desktop app
+- [ ] **D3.2** Chat list: subscribe chat:list, create/delete
+- [ ] **D3.3** Message view: subscribe message:list, send + AI action, tool approval
+- [ ] **D3.4** Navigation (NavigationSplitView) + testing
+
+### Phase 4: Org App (Multi-Tenancy + Full Features)
+
+- [ ] **D4.1** Scaffold org desktop app
+- [ ] **D4.2** Onboarding: 4-step form (profile/org/appearance/preferences)
+- [ ] **D4.3** Org switcher + home (NavigationSplitView sidebar)
+- [ ] **D4.4** Projects + tasks: subscribe, create/toggle/delete
+- [ ] **D4.5** Wiki: soft delete/restore, auto-save, conflict detection
+- [ ] **D4.6** Members: invite, revoke, set admin, remove
+- [ ] **D4.7** Settings: edit org, leave/delete, transfer ownership
+- [ ] **D4.8** Navigation + testing
+
+### Phase 5: CI Integration
+
+- [ ] **D5.1** Add desktop path filter + build/test jobs to ci.yml
+- [ ] **D5.2** Add package.json scripts (dev:desktop, build:desktop, test:desktop, clean:desktop)
+- [ ] **D5.3** Verify all CI jobs pass
+
+---
+
+## Desktop Final Verification
+
+- [ ] All 4 apps build with `swift build` on macOS
+- [ ] All 4 apps launch and display UI on macOS
+- [ ] Movie: search -> results -> detail
+- [ ] Blog: sign in -> create -> list -> edit -> delete; profile works
+- [ ] Chat: sign in -> create chat -> send -> AI responds; tool approval works
+- [ ] Org: onboarding -> org -> projects -> tasks -> wiki -> members
+- [ ] Real-time: data changes sync within 2 seconds across web/mobile/desktop
+- [ ] Auth (password + Google OAuth) works
+- [ ] File upload works
+- [ ] `swift test` passes for shared + all 4 apps
+- [ ] All CI jobs pass
+
+## Desktop Success Criteria
+
+- 4 native desktop apps running on macOS (Linux build verified in CI)
+- Feature parity with mobile apps (core features)
+- All apps connect to the same Convex backend
+- Real-time subscriptions via WebSocket (not polling)
+- Auth working (email/password, Google OAuth via system browser)
+- File upload working
+- Full CI: build + test + lint
