@@ -5,7 +5,39 @@ on:
     branches: ['*']
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      ts: ${{ steps.filter.outputs.ts }}
+      swift: ${{ steps.filter.outputs.swift }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            ts:
+              - 'packages/**'
+              - 'apps/**'
+              - 'package.json'
+              - 'bun.lock'
+              - 'tsconfig*.json'
+              - 'turbo.json'
+              - 'biome.json'
+              - '.oxlintrc.json'
+              - '.eslintrc*'
+              - '.github/workflows/**'
+            swift:
+              - 'mobile/**'
+              - '.swiftlint.yml'
+              - '.swiftformat'
+              - '.github/workflows/**'
+
   tsc:
+    needs: changes
+    if: needs.changes.outputs.ts == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -13,7 +45,8 @@ jobs:
       - run: bun i && bun tsc
 
   format:
-    needs: tsc
+    needs: [changes, tsc]
+    if: needs.changes.outputs.ts == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -22,7 +55,8 @@ jobs:
       - run: bun i && bun format:check
 
   lint-ts:
-    needs: format
+    needs: [changes, format]
+    if: needs.changes.outputs.ts == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -30,7 +64,8 @@ jobs:
       - run: bun i && bun lint:ts
 
   build-ts:
-    needs: lint-ts
+    needs: [changes, lint-ts]
+    if: needs.changes.outputs.ts == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -38,6 +73,8 @@ jobs:
       - run: bun i && cp .env.example .env && bun build:ts
 
   lint-swift:
+    needs: changes
+    if: needs.changes.outputs.swift == 'true'
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v5
@@ -45,7 +82,8 @@ jobs:
       - run: swiftformat --lint . && ktlint '**/*.kt' && swiftlint lint --strict && yamllint .
 
   build-swift:
-    needs: lint-swift
+    needs: [changes, lint-swift]
+    if: needs.changes.outputs.swift == 'true'
     runs-on: macos-latest
     timeout-minutes: 30
     strategy:
