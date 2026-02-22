@@ -127,7 +127,7 @@ internal struct MembersView: View {
                     ForEach(viewModel.members) { member in
                         HStack {
                             VStack {
-                                Text(member.name ?? member.email ?? member.userID)
+                                Text(member.name ?? member.email ?? member.userId)
                                 if let email = member.email {
                                     Text(email)
                                 }
@@ -135,7 +135,7 @@ internal struct MembersView: View {
                             Text(member.role.capitalized)
                             if role == "owner" || role == "admin" {
                                 Button("Remove") {
-                                    Task { await viewModel.removeMember(orgID: orgID, userID: member.userID) }
+                                    Task { await viewModel.removeMember(orgID: orgID, userID: member.userId) }
                                 }
                             }
                         }

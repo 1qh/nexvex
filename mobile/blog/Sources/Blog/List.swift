@@ -131,7 +131,7 @@ internal struct CardView: View {
                     .clipShape(Capsule())
             }
 
-            if let coverImageURL = blog.coverImageURL, let url = URL(string: coverImageURL) {
+            if let coverImageUrl = blog.coverImageUrl, let url = URL(string: coverImageUrl) {
                 AsyncImage(url: url) { phase in
                     switch phase {
                     case let .success(image):

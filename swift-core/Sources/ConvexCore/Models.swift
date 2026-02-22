@@ -46,7 +46,7 @@ public struct SearchResult: Codable, Identifiable, Sendable {
 public struct Author: Codable, Sendable {
     public let name: String?
     public let email: String?
-    public let imageURL: String?
+    public let imageUrl: String?
 }
 
 public struct Blog: Codable, Identifiable, Sendable {
@@ -57,12 +57,12 @@ public struct Blog: Codable, Identifiable, Sendable {
     public let category: String
     public let published: Bool
     public let coverImage: String?
-    public let coverImageURL: String?
+    public let coverImageUrl: String?
     public let tags: [String]?
     public let attachments: [String]?
-    public let attachmentsURLs: [String]?
-    public let attachmentsURL: String?
-    public let userID: String
+    public let attachmentsUrls: [String]?
+    public let attachmentsUrl: String?
+    public let userId: String
     public let updatedAt: Double
     public let author: Author?
 
@@ -76,7 +76,7 @@ public struct ProfileData: Codable, Sendable {
     public let displayName: String
     public let bio: String?
     public let avatar: String?
-    public let avatarURL: String?
+    public let avatarUrl: String?
     public let notifications: Bool
     public let theme: String
 }
@@ -86,7 +86,7 @@ public struct Chat: Codable, Identifiable, Sendable {
     public let _creationTime: Double
     public let title: String
     public let isPublic: Bool
-    public let userID: String
+    public let userId: String
     public let updatedAt: Double
     public let author: Author?
 
@@ -112,10 +112,10 @@ public struct MessagePart: Codable, Sendable {
 public struct Message: Codable, Identifiable, Sendable {
     public let _id: String
     public let _creationTime: Double
-    public let chatID: String
+    public let chatId: String
     public let parts: [MessagePart]
     public let role: String
-    public let userID: String?
+    public let userId: String?
     public let updatedAt: Double?
 
     public var id: String {
@@ -128,7 +128,7 @@ public struct Org: Codable, Identifiable, Sendable {
     public let _creationTime: Double
     public let name: String
     public let slug: String
-    public let userID: String
+    public let userId: String
     public let updatedAt: Double
 
     public var id: String {
@@ -138,8 +138,8 @@ public struct Org: Codable, Identifiable, Sendable {
 
 public struct OrgMember: Codable, Identifiable, Sendable {
     public let _id: String
-    public let orgID: String
-    public let userID: String
+    public let orgId: String
+    public let userId: String
     public let isAdmin: Bool
     public let updatedAt: Double
 
@@ -153,10 +153,10 @@ public struct Project: Codable, Identifiable, Sendable {
     public let _creationTime: Double
     public let name: String
     public let description: String?
-    public let orgID: String
+    public let orgId: String
     public let editors: [String]?
     public let status: String?
-    public let userID: String
+    public let userId: String
     public let updatedAt: Double
 
     public var id: String {
@@ -168,12 +168,12 @@ public struct TaskItem: Codable, Identifiable, Sendable {
     public let _id: String
     public let _creationTime: Double
     public let title: String
-    public let projectID: String
-    public let orgID: String
+    public let projectId: String
+    public let orgId: String
     public let priority: String?
     public let completed: Bool?
-    public let assigneeID: String?
-    public let userID: String
+    public let assigneeId: String?
+    public let userId: String
     public let updatedAt: Double
 
     public var id: String {
@@ -187,11 +187,11 @@ public struct Wiki: Codable, Identifiable, Sendable {
     public let title: String
     public let slug: String
     public let content: String?
-    public let orgID: String
+    public let orgId: String
     public let status: String
     public let editors: [String]?
     public let deletedAt: Double?
-    public let userID: String
+    public let userId: String
     public let updatedAt: Double
 
     public var id: String {
@@ -201,7 +201,7 @@ public struct Wiki: Codable, Identifiable, Sendable {
 
 public struct OrgInvite: Codable, Identifiable, Sendable {
     public let _id: String
-    public let orgID: String
+    public let orgId: String
     public let email: String
     public let expiresAt: Double
 
@@ -212,8 +212,8 @@ public struct OrgInvite: Codable, Identifiable, Sendable {
 
 public struct OrgJoinRequest: Codable, Identifiable, Sendable {
     public let _id: String
-    public let orgID: String
-    public let userID: String
+    public let orgId: String
+    public let userId: String
     public let status: String
 
     public var id: String {
@@ -252,14 +252,14 @@ public struct PaginatedResult<T: Codable & Sendable>: Sendable {
 #endif
 
 public struct OrgMemberEntry: Codable, Identifiable, Sendable {
-    public let userID: String
+    public let userId: String
     public let role: String
     public let name: String?
     public let email: String?
-    public let imageURL: String?
+    public let imageUrl: String?
 
     public var id: String {
-        userID
+        userId
     }
 }
 
@@ -274,8 +274,8 @@ public struct OrgWithRole: Codable, Identifiable, Sendable {
 
 public struct OrgMembership: Codable, Sendable {
     public let _id: String?
-    public let orgID: String?
-    public let userID: String?
+    public let orgId: String?
+    public let userId: String?
     public let isAdmin: Bool?
     public let role: String?
 }
@@ -285,7 +285,7 @@ public struct OrgProfile: Codable, Sendable {
     public let displayName: String?
     public let bio: String?
     public let avatar: String?
-    public let avatarURL: String?
+    public let avatarUrl: String?
     public let notifications: Bool?
     public let theme: String?
 }

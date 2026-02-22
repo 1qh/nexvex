@@ -158,7 +158,7 @@ internal struct MembersView: View {
                         ForEach(viewModel.members) { member in
                             HStack {
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text(member.name ?? member.email ?? member.userID)
+                                    Text(member.name ?? member.email ?? member.userId)
                                         .font(.headline)
                                     if let email = member.email {
                                         Text(email)

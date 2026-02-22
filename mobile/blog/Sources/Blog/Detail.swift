@@ -104,7 +104,7 @@ internal struct DetailView: View {
                                 .clipShape(Capsule())
                         }
 
-                        if let coverImageURL = blog.coverImageURL, let url = URL(string: coverImageURL) {
+                        if let coverImageUrl = blog.coverImageUrl, let url = URL(string: coverImageUrl) {
                             AsyncImage(url: url) { phase in
                                 switch phase {
                                 case let .success(image):
@@ -140,9 +140,9 @@ internal struct DetailView: View {
                             }
                         }
 
-                        if let attachmentsURLs = blog.attachmentsURLs {
+                        if let attachmentsUrls = blog.attachmentsUrls {
                             VStack(alignment: .leading, spacing: 4) {
-                                ForEach(attachmentsURLs, id: \.self) { urlString in
+                                ForEach(attachmentsUrls, id: \.self) { urlString in
                                     if let url = URL(string: urlString) {
                                         Link(urlString, destination: url)
                                             .font(.caption)
