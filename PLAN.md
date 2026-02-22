@@ -68,12 +68,16 @@ Both SDKs use colon-separated format: `"module:function_name"` (NOT dots)
 
 ### Compact Project Philosophy
 
-Every app follows the **same generic structure**. The folder name (`blog/`, `chat/`, `movie/`, `org/`) is the only differentiator — no app-name prefixes on files, classes, or directories.
+Every app follows the **same generic structure**. The folder name (`blog/`, `chat/`, `movie/`, `org/`) is the only differentiator — no app-name prefixes on files, classes, or directories. Be as compact and consolidated as possible.
 
 **Rules:**
 
 - **No app-name prefixes**: files and classes use generic names (`App.swift`, `Detail.swift`, `ListView`, `DetailViewModel`), never `BlogApp.swift` or `BlogDetailView`
-- **Flat sources**: Swift files live directly in `Sources/` and `Tests/` — no subfolder nesting
+- **Sources require `Sources/{Module}/` subdirectory**: Skip's Gradle composite build derives the module group from the SPM package directory name (`{dir}.module`). The target path MUST be `Sources/{Module}` (e.g., `Sources/Blog`, `Sources/Chat`). Flattening to `Sources/` breaks Android Gradle module resolution.
+- **Tests require `Tests/{Module}Tests/` subdirectory**: same constraint — `Tests/BlogTests`, `Tests/ChatTests`, etc.
+- **ANDROID_PACKAGE_NAME must be `{dir}.module`**: in `Skip.env`, this value must match the Gradle composite build group. Example: `blog/` → `ANDROID_PACKAGE_NAME = blog.module`. The skipstone plugin registers modules as `{dir}.module:{Target}` and Gradle composite build substitution requires exact match.
+- **Main.kt package matches ANDROID_PACKAGE_NAME**: `package blog.module` (not `blog.app`)
+- **No recursive typealiases**: since Main.kt and transpiled code share the same package, reference transpiled classes directly (e.g., `AppDelegate.shared`) instead of creating typealiases that resolve to themselves
 - **Consolidate per feature**: each feature merges its view + viewmodel into one file (`Detail.swift` = `DetailView` + `DetailViewModel`)
 - **SPM module names stay unique** (`Blog`, `Chat`, `Movie`, `Org`) because Swift requires it — everything else is generic
 - **Darwin uses generic names**: `App.xcconfig`, `App.xcodeproj`, `App.xcscheme` — identical across all 4 apps
@@ -94,9 +98,9 @@ mobile/
       FileService.swift       Convex file upload + image compression
 
   blog/                      <- Skip Lite app
-    Package.swift             target "Blog", path: "Sources"
-    Skip.env                  PRODUCT_NAME=Blog
-    Sources/                  flat — no subfolder
+    Package.swift             target "Blog", path: "Sources/Blog"
+    Skip.env                  PRODUCT_NAME=Blog, ANDROID_PACKAGE_NAME=blog.module
+    Sources/Blog/             {Module} subdirectory required by Skip Gradle
       Skip/skip.yml
       App.swift               RootView + AppDelegate + ContentView
       Detail.swift            DetailView + DetailViewModel
@@ -104,7 +108,7 @@ mobile/
       List.swift              CardView + ListView + ListViewModel
       Profile.swift           ProfileView + ProfileViewModel
       Resources/
-    Tests/                    flat — no subfolder
+    Tests/BlogTests/          {Module}Tests subdirectory required by Skip
       AppTests.swift
       XCSkipTests.swift
       Resources/
@@ -117,20 +121,21 @@ mobile/
       Sources/Main.swift
     Project.xcworkspace/
     Android/
+      app/src/main/kotlin/Main.kt   package blog.module
 
   chat/                      <- same structure, target "Chat"
-    Sources/
+    Sources/Chat/
       App.swift               RootView + AppDelegate + ContentView
       List.swift              ListView + ListViewModel
       Message.swift           MessageBubble + MessageView + MessageViewModel
       Public.swift            PublicView
   movie/                     <- same structure, target "Movie"
-    Sources/
+    Sources/Movie/
       App.swift               RootView + AppDelegate + ContentView
       Detail.swift            FetchByIDView + DetailContent + DetailView + DetailViewModel
       Search.swift            ResultRow + SearchView + SearchViewModel
   org/                       <- same structure, target "Org"
-    Sources/
+    Sources/Org/
       App.swift               RootView + AppDelegate + ContentView
       Home.swift              Tab + HomeView
       Switcher.swift          RoleBadge + SwitcherView + SwitcherViewModel
