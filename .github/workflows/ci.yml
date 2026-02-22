@@ -12,6 +12,7 @@ jobs:
     outputs:
       ts: ${{ steps.filter.outputs.ts }}
       swift: ${{ steps.filter.outputs.swift }}
+      desktop: ${{ steps.filter.outputs.desktop }}
     steps:
       - uses: actions/checkout@v5
       - uses: dorny/paths-filter@v3
@@ -31,6 +32,13 @@ jobs:
               - '.github/workflows/**'
             swift:
               - 'mobile/**'
+              - 'swift-core/**'
+              - '.swiftlint.yml'
+              - '.swiftformat'
+              - '.github/workflows/**'
+            desktop:
+              - 'desktop/**'
+              - 'swift-core/**'
               - '.swiftlint.yml'
               - '.swiftformat'
               - '.github/workflows/**'
@@ -74,7 +82,7 @@ jobs:
 
   lint-swift:
     needs: changes
-    if: needs.changes.outputs.swift == 'true'
+    if: needs.changes.outputs.swift == 'true' || needs.changes.outputs.desktop == 'true'
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v5
@@ -106,3 +114,54 @@ jobs:
             -skipMacroValidation -skipPackagePluginValidation \
             CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
             ARCHS=arm64 SKIP_ACTION=build -quiet
+
+  build-desktop:
+    needs: [changes, lint-swift]
+    if: needs.changes.outputs.desktop == 'true'
+    runs-on: macos-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [blog, chat, movie, org]
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build ${{ matrix.app }}
+        run: swift build --package-path desktop/${{ matrix.app }}
+
+  test-desktop:
+    needs: [changes, build-desktop]
+    if: needs.changes.outputs.desktop == 'true'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Test swift-core
+        run: swift test --package-path swift-core
+      - name: Test desktop/shared
+        run: swift test --package-path desktop/shared
+
+  e2e-desktop:
+    needs: [changes, build-desktop]
+    if: needs.changes.outputs.desktop == 'true'
+    runs-on: macos-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        app:
+          - { dir: movie, project: MovieDesktop, scheme: MovieUITests }
+          - { dir: blog, project: BlogDesktop, scheme: BlogUITests }
+          - { dir: chat, project: ChatDesktop, scheme: ChatUITests }
+          - { dir: org, project: OrgDesktop, scheme: OrgUITests }
+    steps:
+      - uses: actions/checkout@v5
+      - run: brew install xcodegen
+      - name: Generate Xcode project
+        run: xcodegen generate --spec desktop/${{ matrix.app.dir }}/project.yml --project desktop/${{ matrix.app.dir }}
+      - name: Run E2E tests for ${{ matrix.app.dir }}
+        run: |
+          xcodebuild test \
+            -project "desktop/${{ matrix.app.dir }}/${{ matrix.app.project }}.xcodeproj" \
+            -scheme "${{ matrix.app.scheme }}" \
+            -destination 'platform=macOS' \
+            -skipMacroValidation -quiet

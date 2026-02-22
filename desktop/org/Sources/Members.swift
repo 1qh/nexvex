@@ -88,9 +88,9 @@ final class MembersViewModel: SwiftCrossUI.ObservableObject {
 struct MembersView: View {
     let orgID: String
     let role: String
-    @State var viewModel = MembersViewModel()
-    @State var showInviteForm = false
-    @State var inviteEmail = ""
+    @State private var viewModel = MembersViewModel()
+    @State private var showInviteForm = false
+    @State private var inviteEmail = ""
 
     var body: some View {
         VStack {

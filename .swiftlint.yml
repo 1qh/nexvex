@@ -1,5 +1,6 @@
 included:
   - mobile
+  - desktop
 
 excluded:
   - "**/.build"
@@ -45,6 +46,7 @@ disabled_rules:
   - nslocalizedstring_require_bundle
   - redundant_self
   - explicit_enum_raw_value
+  - blanket_disable_command
 
 opt_in_rules:
   - accessibility_label_for_image

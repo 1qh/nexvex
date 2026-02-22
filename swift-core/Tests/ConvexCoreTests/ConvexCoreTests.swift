@@ -54,14 +54,14 @@ struct ModelsTests {
             "category": "tech",
             "published": true,
             "coverImage": null,
-            "coverImageURL": null,
+            "coverImageUrl": null,
             "tags": ["swift"],
             "attachments": null,
-            "attachmentsURLs": null,
-            "attachmentsURL": null,
-            "userID": "user1",
+            "attachmentsUrls": null,
+            "attachmentsUrl": null,
+            "userId": "user1",
             "updatedAt": 1700000000000,
-            "author": {"name": "Alice", "email": null, "imageURL": null}
+            "author": {"name": "Alice", "email": null, "imageUrl": null}
         }
         """
         let blog = try JSONDecoder().decode(Blog.self, from: Data(json.utf8))
@@ -78,7 +78,7 @@ struct ModelsTests {
             "_creationTime": 1700000000000,
             "title": "Chat Room",
             "isPublic": true,
-            "userID": "u1",
+            "userId": "u1",
             "updatedAt": 1700000000000,
             "author": null
         }
@@ -94,10 +94,10 @@ struct ModelsTests {
         {
             "_id": "m1",
             "_creationTime": 1700000000000,
-            "chatID": "c1",
+            "chatId": "c1",
             "parts": [{"type": "text", "text": "Hello", "image": null, "file": null, "name": null}],
             "role": "user",
-            "userID": "u1",
+            "userId": "u1",
             "updatedAt": null
         }
         """
@@ -114,7 +114,7 @@ struct ModelsTests {
             "_creationTime": 1700000000000,
             "name": "Acme",
             "slug": "acme",
-            "userID": "u1",
+            "userId": "u1",
             "updatedAt": 1700000000000
         }
         """
@@ -127,7 +127,7 @@ struct ModelsTests {
     func paginatedResultDecodes() throws {
         let json = """
         {
-            "page": [{"_id": "o1", "_creationTime": 0, "name": "Acme", "slug": "acme", "userID": "u1", "updatedAt": 0}],
+            "page": [{"_id": "o1", "_creationTime": 0, "name": "Acme", "slug": "acme", "userId": "u1", "updatedAt": 0}],
             "continueCursor": "cursor123",
             "isDone": false
         }
@@ -145,12 +145,12 @@ struct ModelsTests {
             "_id": "t1",
             "_creationTime": 0,
             "title": "Fix bug",
-            "projectID": "p1",
-            "orgID": "o1",
+            "projectId": "p1",
+            "orgId": "o1",
             "priority": "high",
             "completed": false,
-            "assigneeID": null,
-            "userID": "u1",
+            "assigneeId": null,
+            "userId": "u1",
             "updatedAt": 0
         }
         """
@@ -169,11 +169,11 @@ struct ModelsTests {
             "title": "Wiki Page",
             "slug": "wiki-page",
             "content": "Content here",
-            "orgID": "o1",
+            "orgId": "o1",
             "status": "active",
             "editors": ["u1", "u2"],
             "deletedAt": null,
-            "userID": "u1",
+            "userId": "u1",
             "updatedAt": 0
         }
         """

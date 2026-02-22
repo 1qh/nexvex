@@ -7,6 +7,7 @@ final class DetailViewModel: SwiftCrossUI.ObservableObject {
     @SwiftCrossUI.Published var movie: Movie?
     @SwiftCrossUI.Published var isLoading = false
     @SwiftCrossUI.Published var errorMessage: String?
+    @SwiftCrossUI.Published var posterURL: URL?
 
     @MainActor
     func loadMovie(tmdbID: Int) async {
@@ -18,6 +19,11 @@ final class DetailViewModel: SwiftCrossUI.ObservableObject {
                 args: ["tmdb_id": Double(tmdbID)]
             )
             movie = loaded
+            if let poster = loaded.poster_path {
+                Task {
+                    posterURL = await ImageCache.shared.download(poster, size: "w500")
+                }
+            }
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -48,7 +54,7 @@ struct DetailView: View {
                     }
                 }
             } else if let movie = viewModel.movie {
-                MovieDetail(movie: movie)
+                MovieDetail(movie: movie, posterURL: viewModel.posterURL)
             }
         }
         .task {
@@ -59,10 +65,17 @@ struct DetailView: View {
 
 struct MovieDetail: View {
     let movie: Movie
+    let posterURL: URL?
 
     var body: some View {
         ScrollView {
             VStack {
+                if let url = posterURL {
+                    Image(url)
+                        .resizable()
+                        .frame(width: 200, height: 300)
+                }
+
                 Text(movie.title)
                 if movie.original_title != movie.title {
                     Text(movie.original_title)

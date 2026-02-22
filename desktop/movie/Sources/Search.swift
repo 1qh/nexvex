@@ -8,6 +8,7 @@ final class SearchViewModel: SwiftCrossUI.ObservableObject {
     @SwiftCrossUI.Published var results = [SearchResult]()
     @SwiftCrossUI.Published var isLoading = false
     @SwiftCrossUI.Published var errorMessage: String?
+    @SwiftCrossUI.Published var posterURLs = [Int: URL]()
     private var searchTask: Task<Void, Never>?
 
     @MainActor
@@ -29,6 +30,7 @@ final class SearchViewModel: SwiftCrossUI.ObservableObject {
                 )
                 if !Task.isCancelled {
                     results = found
+                    loadPosters(found)
                 }
             } catch {
                 if !Task.isCancelled {
@@ -37,6 +39,22 @@ final class SearchViewModel: SwiftCrossUI.ObservableObject {
             }
             if !Task.isCancelled {
                 isLoading = false
+            }
+        }
+    }
+
+    @MainActor
+    private func loadPosters(_ items: [SearchResult]) {
+        for item in items {
+            guard let poster = item.poster_path else { continue }
+            if let cached = ImageCache.shared.localURL(for: poster, size: "w185") {
+                posterURLs[item.id] = cached
+                continue
+            }
+            Task {
+                if let url = await ImageCache.shared.download(poster, size: "w185") {
+                    posterURLs[item.id] = url
+                }
             }
         }
     }
@@ -70,6 +88,11 @@ struct SearchView: View {
                 ScrollView {
                     ForEach(viewModel.results) { result in
                         HStack {
+                            if let posterURL = viewModel.posterURLs[result.id] {
+                                Image(posterURL)
+                                    .resizable()
+                                    .frame(width: 60, height: 90)
+                            }
                             VStack {
                                 Text(result.title)
                                 HStack {
