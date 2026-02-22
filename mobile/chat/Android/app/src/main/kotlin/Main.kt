@@ -1,4 +1,4 @@
-package chat.app
+package chat.module
 
 import android.Manifest
 import android.app.Application
@@ -26,10 +26,9 @@ import skip.model.*
 import skip.ui.*
 import android.graphics.Color as AndroidColor
 
-internal val logger: SkipLogger = SkipLogger(subsystem = "chat.app", category = "ChatApp")
+internal val logger: SkipLogger = SkipLogger(subsystem = "chat.module", category = "Chat")
 
-private typealias AppRootView = ChatAppRootView
-private typealias AppDelegate = ChatAppAppDelegate
+private typealias AppRootView = RootView
 
 // / AndroidAppMain is the `android.app.Application` entry point, and must match `application android:name` in the AndroidMainfest.xml file.
 open class AndroidAppMain : Application {

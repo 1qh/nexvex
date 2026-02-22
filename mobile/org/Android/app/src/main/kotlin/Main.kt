@@ -1,4 +1,4 @@
-package org.app
+package org.module
 
 import android.Manifest
 import android.app.Application
@@ -26,10 +26,9 @@ import skip.model.*
 import skip.ui.*
 import android.graphics.Color as AndroidColor
 
-internal val logger: SkipLogger = SkipLogger(subsystem = "org.app", category = "OrgApp")
+internal val logger: SkipLogger = SkipLogger(subsystem = "org.module", category = "Org")
 
-private typealias AppRootView = OrgAppRootView
-private typealias AppDelegate = OrgAppAppDelegate
+private typealias AppRootView = RootView
 
 // / AndroidAppMain is the `android.app.Application` entry point, and must match `application android:name` in the AndroidMainfest.xml file.
 open class AndroidAppMain : Application {

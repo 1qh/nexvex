@@ -1,4 +1,4 @@
-package blog.app
+package blog.module
 
 import android.Manifest
 import android.app.Application
@@ -26,10 +26,9 @@ import skip.model.*
 import skip.ui.*
 import android.graphics.Color as AndroidColor
 
-internal val logger: SkipLogger = SkipLogger(subsystem = "blog.app", category = "BlogApp")
+internal val logger: SkipLogger = SkipLogger(subsystem = "blog.module", category = "Blog")
 
-private typealias AppRootView = BlogAppRootView
-private typealias AppDelegate = BlogAppAppDelegate
+private typealias AppRootView = RootView
 
 // / AndroidAppMain is the `android.app.Application` entry point, and must match `application android:name` in the AndroidMainfest.xml file.
 open class AndroidAppMain : Application {

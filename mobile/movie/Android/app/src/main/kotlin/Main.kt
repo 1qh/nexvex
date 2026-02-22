@@ -1,4 +1,4 @@
-package movie.app
+package movie.module
 
 import android.Manifest
 import android.app.Application
@@ -26,10 +26,9 @@ import skip.model.*
 import skip.ui.*
 import android.graphics.Color as AndroidColor
 
-internal val logger: SkipLogger = SkipLogger(subsystem = "movie.app", category = "MovieApp")
+internal val logger: SkipLogger = SkipLogger(subsystem = "movie.module", category = "Movie")
 
-private typealias AppRootView = MovieAppRootView
-private typealias AppDelegate = MovieAppAppDelegate
+private typealias AppRootView = RootView
 
 // / AndroidAppMain is the `android.app.Application` entry point, and must match `application android:name` in the AndroidMainfest.xml file.
 open class AndroidAppMain : Application {

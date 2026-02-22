@@ -18,10 +18,10 @@ internal let package = Package(
         .target(name: "Blog", dependencies: [
             .product(name: "SkipUI", package: "skip-ui"),
             .product(name: "ConvexShared", package: "convex-shared"),
-        ], path: "Sources", resources: [.process("Resources")], plugins: [.plugin(name: "skipstone", package: "skip")]),
+        ], path: "Sources/Blog", resources: [.process("Resources")], plugins: [.plugin(name: "skipstone", package: "skip")]),
         .testTarget(name: "BlogTests", dependencies: [
             "Blog",
             .product(name: "SkipTest", package: "skip"),
-        ], path: "Tests", resources: [.process("Resources")], plugins: [.plugin(name: "skipstone", package: "skip")]),
+        ], path: "Tests/BlogTests", resources: [.process("Resources")], plugins: [.plugin(name: "skipstone", package: "skip")]),
     ]
 )

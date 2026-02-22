@@ -9,6 +9,7 @@
   "scripts": {
     "build:ts": "turbo run build",
     "clean": "git clean -xdf node_modules .turbo bun.lock",
+    "clean:mobile": "rm -rf mobile/*/.build mobile/*/Android/.gradle mobile/*/Android/build mobile/*/Android/app/build ~/Library/Developer/Xcode/DerivedData/Project-*",
     "clean:workspaces": "turbo run clean",
     "dev:blog": "turbo watch dev -F @a/blog -F @a/be",
     "dev:chat": "turbo watch dev -F @a/chat -F @a/be",
